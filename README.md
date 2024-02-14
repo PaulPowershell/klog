@@ -41,5 +41,3 @@ Demo
 
 License
 This project is licensed under the MIT License. See the LICENSE file for details.
-
-Replace "yourusername" with your actual GitHub username, and update the image URLs accordingly. Customize the content as needed. If you have any additional requests or changes, feel free to let me know!
