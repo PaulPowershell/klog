@@ -11,7 +11,7 @@ Before using this application, ensure you have the following prerequisites:
 - Go installed on your system. (to build)
 - `kubectl` configured with access to your Kubernetes cluster.
 
-## Installation
+## Installation (optionnal)
 Clone the repository to your local machine:
 
 ```bash
