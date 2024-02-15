@@ -11,10 +11,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
+    - name: Setup Go environment
+      uses: actions/setup-go@v5.0.0
 
     - name: Build Go
       run: |
@@ -25,16 +23,14 @@ jobs:
       with:
         path: ./klog-386.exe
         key: ${{ github.run_id }}-cache-build-key-1
-        
+
   build-windows-64:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-  
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
+
+    - name: Setup Go environment
+      uses: actions/setup-go@v5.0.0
   
     - name: Build Go
       run: |
@@ -51,10 +47,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
+    - name: Setup Go environment
+      uses: actions/setup-go@v5.0.0
 
     - name: Build Go
       run: |
@@ -71,10 +65,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
+    - name: Setup Go environment
+      uses: actions/setup-go@v5.0.0
 
     - name: Build Go
       run: |
