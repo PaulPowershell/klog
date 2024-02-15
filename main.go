@@ -179,6 +179,7 @@ func klog(pod string, container string) {
 		container = selectContainer(podInfo.Spec.Containers)
 	}
 
+	fmt.Printf("Affichage du log du container '%s' dans le pod '%s'\n", container, podName)
 	// Activer le suivi des journaux
 	stream, err := clientset.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
 		Container: container,
