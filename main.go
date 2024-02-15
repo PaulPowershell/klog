@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -23,6 +24,26 @@ import (
 )
 
 func printLogLine(line string) {
+	var logEntry map[string]interface{}
+
+	if err := json.Unmarshal([]byte(line), &logEntry); err == nil {
+		level, exists := logEntry["level"].(string)
+		if exists {
+			switch level {
+			case "error":
+				color.Red(line)
+			case "warning":
+				color.Yellow(line)
+			case "info":
+				color.Green(line)
+			default:
+				fmt.Println(line)
+			}
+			return
+		}
+	}
+
+	// Revenir à la logique d'origine pour les journaux non-JSON
 	switch {
 	case strings.Contains(line, "level=error"):
 		color.Red(line)
