@@ -38,7 +38,7 @@ klog -h
 Select `pod` or `container` if you have multiple choices
 
 ## Demo
-![klog.gif](https://github.com/VegaCorporoptions/Klog/blob/main/ksub.gif?raw=true)
+![klog.gif](https://github.com/VegaCorporoptions/Klog/blob/main/klog.gif?raw=true)
 
 License
 This project is licensed under the MIT License. See the LICENSE file for details.
