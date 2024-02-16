@@ -32,7 +32,7 @@ func printLogLine(line string) {
 			switch level {
 			case "error":
 				color.Red(line)
-			case "warning":
+			case "warn":
 				color.Yellow(line)
 			case "info":
 				color.Green(line)
@@ -49,9 +49,9 @@ func printLogLine(line string) {
 		color.Red(line)
 	case strings.Contains(line, "levelerror"):
 		color.Red(line)
-	case strings.Contains(line, "level=warning"):
+	case strings.Contains(line, "level=warn"):
 		color.Yellow(line)
-	case strings.Contains(line, "levelwarning"):
+	case strings.Contains(line, "levelwarn"):
 		color.Yellow(line)
 	case strings.Contains(line, "level=info"):
 		color.Green(line)
