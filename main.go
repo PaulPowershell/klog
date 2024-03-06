@@ -21,9 +21,62 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/manifoldco/promptui"
+	"github.com/spf13/cobra"
 )
 
-func printLogLine(line string) {
+var (
+	podFlag       string
+	containerFlag string
+	keywordFlag   string
+)
+var rootCmd = &cobra.Command{
+	Use:   "klog",
+	Short: "Stream Kubernetes pod logs.",
+	Run: func(cmd *cobra.Command, args []string) {
+		// Utilisez les variables globales définies ci-dessus (podFlag, containerFlag, keywordFlag)
+		klog(podFlag, containerFlag, keywordFlag)
+	},
+}
+
+func init() {
+	// Définir les flags pour les arguments
+	rootCmd.Flags().StringVarP(&podFlag, "pod", "p", "", "Nom du pod (obligatoire)")
+	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Nom du conteneur")
+	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Mot clé pour la mise en surbrillance")
+}
+
+// Fonction pour mettre en surbrillance un mot dans la chaîne
+func highlightKeyword(line string, keyword string) string {
+	// Utilisation de color pour mettre en surbrillance le mot en magenta
+	magenta := color.New(color.FgMagenta).SprintFunc()
+
+	// Utilisation d'une expression régulière pour trouver le mot clé
+	re := regexp.MustCompile(keyword)
+	matches := re.FindAllStringIndex(line, -1)
+
+	// Si des correspondances sont trouvées, mettez en surbrillance le mot
+	if len(matches) > 0 {
+		// Initialisation de la chaîne résultante
+		result := ""
+
+		// Boucle à travers les correspondances et ajoute de la couleur
+		startIndex := 0
+		for _, match := range matches {
+			result += line[startIndex:match[0]] + magenta(line[match[0]:match[1]])
+			startIndex = match[1]
+		}
+
+		// Ajoute la partie restante de la chaîne
+		result += line[startIndex:]
+
+		return result
+	}
+
+	// Aucune correspondance, retourne la ligne d'origine
+	return line
+}
+
+func printLogLine(line string, keyword string) {
 	var logEntry map[string]interface{}
 
 	if err := json.Unmarshal([]byte(line), &logEntry); err == nil {
@@ -58,7 +111,8 @@ func printLogLine(line string) {
 	case strings.Contains(line, "levelinfo"):
 		color.Green(line)
 	default:
-		fmt.Println(line)
+		// Utiliser la fonction pour mettre en surbrillance le mot clé
+		fmt.Println(highlightKeyword(line, keyword))
 	}
 }
 
@@ -118,8 +172,7 @@ func selectPod(matchedPods []v1.Pod) string {
 
 	return podNames[i]
 }
-
-func klog(pod string, container string) {
+func klog(pod string, container string, keyword string) {
 	config, err := loadKubeConfig()
 	ctx := context.Background()
 
@@ -194,7 +247,8 @@ func klog(pod string, container string) {
 	// Copier le flux vers la sortie standard, en mettant en surbrillance les lignes de logs
 	scanner := bufio.NewScanner(stream)
 	for scanner.Scan() {
-		printLogLine(scanner.Text())
+		// Utiliser la fonction pour mettre en surbrillance le mot clé
+		printLogLine(scanner.Text(), keyword)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -225,6 +279,10 @@ func printHelp() {
 }
 
 func main() {
+	if err := rootCmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
+
 	helpFlag := flag.Bool("h", false, "Show help message")
 
 	flag.Parse()
@@ -236,11 +294,12 @@ func main() {
 
 	pod := flag.Arg(0)
 	container := flag.Arg(1)
+	keyword := flag.Arg(2)
 
 	if pod == "" {
 		log.Fatalf("Le nom du pod est obligatoire.")
 		os.Exit(1)
 	}
 
-	klog(pod, container)
+	klog(pod, container, keyword)
 }
