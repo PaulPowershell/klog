@@ -87,7 +87,7 @@ func printLogLine(line string, keyword string) {
 				color.Red(line)
 			case "warn":
 				color.Yellow(line)
-			case "info":
+			case "debug":
 				color.Green(line)
 			default:
 				fmt.Println(line)
@@ -106,9 +106,9 @@ func printLogLine(line string, keyword string) {
 		color.Yellow(line)
 	case strings.Contains(line, "levelwarn"):
 		color.Yellow(line)
-	case strings.Contains(line, "level=info"):
+	case strings.Contains(line, "level=debug"):
 		color.Green(line)
-	case strings.Contains(line, "levelinfo"):
+	case strings.Contains(line, "leveldebug"):
 		color.Green(line)
 	default:
 		// Utiliser la fonction pour mettre en surbrillance le mot clé
