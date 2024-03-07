@@ -252,10 +252,11 @@ func printHelp() {
 	fmt.Println("Usage: klog [POD] [CONTAINER]")
 	fmt.Println("Stream Kubernetes pod logs.")
 	fmt.Println("Options:")
-	fmt.Println("  -h, --help       Show this help message and exit.")
+	fmt.Println("  -h, --help       Show this help message and exit")
 	fmt.Println("Examples:")
-	fmt.Println("  klog my-pod - Select containers and show logs for 'my-pod'.")
-	fmt.Println("  klog my-pod my-container - Show logs for 'my-container' in 'my-pod'.")
+	fmt.Println("  klog -p my-pod - Select containers and show logs for 'my-pod'")
+	fmt.Println("  klog -p my-pod -c my-container - Show logs for 'my-container' in 'my-pod'")
+	fmt.Println("  klog -p my-pod -c my-container -k 'my-keyword' - Show logs for 'my-container' in 'my-pod' ans color the 'my-keyword' in line")
 }
 func main() {
 	if err := rootCmd.Execute(); err != nil {
