@@ -46,74 +46,57 @@ func init() {
 }
 
 // Fonction pour mettre en surbrillance un mot dans la chaîne
-func highlightKeyword(line string, keyword string) string {
-	// Utilisation de color pour mettre en surbrillance le mot en magenta
+func highlightKeyword(line string, keyword string, colorFunc func(a ...interface{}) string) string {
 	magenta := color.New(color.FgMagenta).SprintFunc()
-
-	// Utilisation d'une expression régulière pour trouver le mot clé
 	re := regexp.MustCompile(keyword)
 	matches := re.FindAllStringIndex(line, -1)
 
-	// Si des correspondances sont trouvées, mettez en surbrillance le mot
 	if len(matches) > 0 {
-		// Initialisation de la chaîne résultante
 		result := ""
-
-		// Boucle à travers les correspondances et ajoute de la couleur
 		startIndex := 0
 		for _, match := range matches {
-			result += line[startIndex:match[0]] + magenta(line[match[0]:match[1]])
+			result += colorFunc(line[startIndex:match[0]]) + magenta(line[match[0]:match[1]])
 			startIndex = match[1]
 		}
-
-		// Ajoute la partie restante de la chaîne
-		result += line[startIndex:]
-
+		result += colorFunc(line[startIndex:])
 		return result
 	}
 
-	// Aucune correspondance, retourne la ligne d'origine
-	return line
+	return colorFunc(line)
 }
 
 func printLogLine(line string, keyword string) {
 	var logEntry map[string]interface{}
+	var colorFunc func(a ...interface{}) string
+
+	switch {
+	case strings.Contains(line, "level=error"), strings.Contains(line, "levelerror"):
+		colorFunc = color.New(color.FgRed).SprintFunc()
+	case strings.Contains(line, "level=warn"), strings.Contains(line, "levelwarn"):
+		colorFunc = color.New(color.FgYellow).SprintFunc()
+	case strings.Contains(line, "level=debug"), strings.Contains(line, "leveldebug"):
+		colorFunc = color.New(color.FgCyan).SprintFunc()
+	default:
+		colorFunc = color.New(color.FgWhite).SprintFunc()
+	}
 
 	if err := json.Unmarshal([]byte(line), &logEntry); err == nil {
 		level, exists := logEntry["level"].(string)
 		if exists {
 			switch level {
 			case "error":
-				color.Red(line)
+				colorFunc = color.New(color.FgRed).SprintFunc()
 			case "warn":
-				color.Yellow(line)
+				colorFunc = color.New(color.FgYellow).SprintFunc()
 			case "debug":
-				color.Green(line)
+				colorFunc = color.New(color.FgCyan).SprintFunc()
 			default:
-				fmt.Println(line)
+				colorFunc = color.New(color.FgWhite).SprintFunc()
 			}
-			return
 		}
 	}
 
-	// Revenir à la logique d'origine pour les journaux non-JSON
-	switch {
-	case strings.Contains(line, "level=error"):
-		color.Red(line)
-	case strings.Contains(line, "levelerror"):
-		color.Red(line)
-	case strings.Contains(line, "level=warn"):
-		color.Yellow(line)
-	case strings.Contains(line, "levelwarn"):
-		color.Yellow(line)
-	case strings.Contains(line, "level=debug"):
-		color.Green(line)
-	case strings.Contains(line, "leveldebug"):
-		color.Green(line)
-	default:
-		// Utiliser la fonction pour mettre en surbrillance le mot clé
-		fmt.Println(highlightKeyword(line, keyword))
-	}
+	fmt.Println(highlightKeyword(colorFunc(line), keyword, colorFunc))
 }
 
 func selectContainer(containers []v1.Container) string {
@@ -141,7 +124,6 @@ func selectContainer(containers []v1.Container) string {
 
 	return containers[i].Name
 }
-
 func selectPod(matchedPods []v1.Pod) string {
 	if len(matchedPods) == 1 {
 		return matchedPods[0].Name
@@ -256,7 +238,6 @@ func klog(pod string, container string, keyword string) {
 		os.Exit(1)
 	}
 }
-
 func loadKubeConfig() (*rest.Config, error) {
 	home := homedir.HomeDir()
 	configPath := filepath.Join(home, ".kube", "config")
@@ -267,7 +248,6 @@ func loadKubeConfig() (*rest.Config, error) {
 	}
 	return config, nil
 }
-
 func printHelp() {
 	fmt.Println("Usage: klog [POD] [CONTAINER]")
 	fmt.Println("Stream Kubernetes pod logs.")
@@ -277,7 +257,6 @@ func printHelp() {
 	fmt.Println("  klog my-pod - Select containers and show logs for 'my-pod'.")
 	fmt.Println("  klog my-pod my-container - Show logs for 'my-container' in 'my-pod'.")
 }
-
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
