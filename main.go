@@ -124,6 +124,7 @@ func selectContainer(containers []v1.Container) string {
 
 	return containers[i].Name
 }
+
 func selectPod(matchedPods []v1.Pod) string {
 	if len(matchedPods) == 1 {
 		return matchedPods[0].Name
@@ -154,6 +155,7 @@ func selectPod(matchedPods []v1.Pod) string {
 
 	return podNames[i]
 }
+
 func klog(pod string, container string, keyword string) {
 	config, err := loadKubeConfig()
 	ctx := context.Background()
@@ -238,6 +240,7 @@ func klog(pod string, container string, keyword string) {
 		os.Exit(1)
 	}
 }
+
 func loadKubeConfig() (*rest.Config, error) {
 	home := homedir.HomeDir()
 	configPath := filepath.Join(home, ".kube", "config")
@@ -248,6 +251,7 @@ func loadKubeConfig() (*rest.Config, error) {
 	}
 	return config, nil
 }
+
 func printHelp() {
 	fmt.Println("Usage: klog [POD] [CONTAINER]")
 	fmt.Println("Stream Kubernetes pod logs.")
@@ -258,6 +262,7 @@ func printHelp() {
 	fmt.Println("  klog -p my-pod -c my-container - Show logs for 'my-container' in 'my-pod'")
 	fmt.Println("  klog -p my-pod -c my-container -k 'my-keyword' - Show logs for 'my-container' in 'my-pod' ans color the 'my-keyword' in line")
 }
+
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
