@@ -146,6 +146,7 @@ jobs:
         release_name: klog ${{ steps.increment_tag.outputs.newtagversion }}
         tag_name: ${{ steps.increment_tag.outputs.newtagversion }}
         body: Auto Release ${{ steps.increment_tag.outputs.newtagversion }}
+        generateReleaseNotes: true
       env:
         GITHUB_TOKEN: ${{ github.token }}
         
