@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,10 +25,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	timestampFormat = "2006-01-02 15:04:05.999999999 MST"
+)
+
 var (
 	podFlag       string
 	containerFlag string
 	keywordFlag   string
+	timestampFlag bool
 )
 var rootCmd = &cobra.Command{
 	Use:   "klog",
@@ -43,6 +49,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&podFlag, "pod", "p", "", "Nom du pod (obligatoire)")
 	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Nom du conteneur")
 	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Mot clé pour la mise en surbrillance")
+	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", false, "Afficher les horodatages dans les logs")
 }
 
 // Fonction pour mettre en surbrillance un mot dans la chaîne
@@ -68,6 +75,16 @@ func highlightKeyword(line string, keyword string, colorFunc func(a ...interface
 func printLogLine(line string, keyword string) {
 	var logEntry map[string]interface{}
 	var colorFunc func(a ...interface{}) string
+
+	// Vérifier si la ligne contient un horodatage
+	var timestamp string
+	if timestampFlag {
+		// Extraire l'horodatage et le reste de la ligne
+		if parts := strings.SplitN(line, " ", 2); len(parts) == 2 {
+			timestamp = parts[0]
+			line = parts[1]
+		}
+	}
 
 	switch {
 	case strings.Contains(line, "level=error"), strings.Contains(line, "levelerror"):
@@ -96,7 +113,19 @@ func printLogLine(line string, keyword string) {
 		}
 	}
 
-	fmt.Println(highlightKeyword(colorFunc(line), keyword, colorFunc))
+	// Convertir la chaîne d'horodatage en objet time.Time
+	if timestamp != "" {
+		t, err := time.Parse(time.RFC3339Nano, timestamp)
+		if err == nil {
+			timestamp = t.Format(timestampFormat)
+		}
+	}
+
+	// Appliquer la colorisation au reste de la ligne
+	coloredLine := highlightKeyword(colorFunc(line), keyword, colorFunc)
+
+	// Afficher l'horodatage normalement et le reste coloré
+	fmt.Printf("%s %s\n", timestamp, coloredLine)
 }
 
 func selectContainer(containers []v1.Container) string {
@@ -219,8 +248,9 @@ func klog(pod string, container string, keyword string) {
 	fmt.Printf("Affichage du log du container '%s' dans le pod '%s'\n", container, podName)
 	// Activer le suivi des journaux
 	stream, err := clientset.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
-		Container: container,
-		Follow:    true, // Activer le suivi des journaux par défaut
+		Container:  container,
+		Timestamps: timestampFlag,
+		Follow:     true, // Activer le suivi des journaux par défaut
 	}).Stream(ctx)
 	if err != nil {
 		log.Fatalf("Erreur lors du démarrage du suivi des journaux: %v\n", err)
@@ -257,10 +287,14 @@ func printHelp() {
 	fmt.Println("Stream Kubernetes pod logs.")
 	fmt.Println("Options:")
 	fmt.Println("  -h, --help       Show this help message and exit")
+	fmt.Println("  -p, --pod        Specify pod name.* [Required]")
+	fmt.Println("  -c, --container  Specify container name [Optional]")
+	fmt.Println("  -k, --keyword    Specify keyword to highlight [Optional]")
+	fmt.Println("  -t, --timestamp  Show timestamp in log lines [Optional]")
 	fmt.Println("Examples:")
-	fmt.Println("  klog -p my-pod - Select containers and show logs for 'my-pod'")
-	fmt.Println("  klog -p my-pod -c my-container - Show logs for 'my-container' in 'my-pod'")
-	fmt.Println("  klog -p my-pod -c my-container -k 'my-keyword' - Show logs for 'my-container' in 'my-pod' ans color the 'my-keyword' in line")
+	fmt.Println("  klog -p my-pod -t / Select containers and show logs for 'my-pod' with timestamp")
+	fmt.Println("  klog -p my-pod -c my-container / Show logs for 'my-container' in 'my-pod'")
+	fmt.Println("  klog -p my-pod -c my-container -k 'my-keyword' / Show logs for 'my-container' in 'my-pod' ans color the 'my-keyword' in line")
 }
 
 func main() {
