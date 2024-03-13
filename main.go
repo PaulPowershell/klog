@@ -285,12 +285,6 @@ func loadKubeConfig() (*rest.Config, error) {
 func printHelp() {
 	fmt.Println("Usage: klog [POD] [CONTAINER]")
 	fmt.Println("Stream Kubernetes pod logs.")
-	fmt.Println("Options:")
-	fmt.Println("  -h, --help       Show this help message and exit")
-	fmt.Println("  -p, --pod        Specify pod name.* [Required]")
-	fmt.Println("  -c, --container  Specify container name [Optional]")
-	fmt.Println("  -k, --keyword    Specify keyword to highlight [Optional]")
-	fmt.Println("  -t, --timestamp  Show timestamp in log lines [Optional]")
 	fmt.Println("Examples:")
 	fmt.Println("  klog -p my-pod -t / Select containers and show logs for 'my-pod' with timestamp")
 	fmt.Println("  klog -p my-pod -c my-container / Show logs for 'my-container' in 'my-pod'")
