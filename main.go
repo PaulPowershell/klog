@@ -35,6 +35,7 @@ var (
 	keywordFlag   string
 	timestampFlag bool
 )
+
 var rootCmd = &cobra.Command{
 	Use:   "klog",
 	Short: "Stream Kubernetes pod logs.",
@@ -283,8 +284,6 @@ func loadKubeConfig() (*rest.Config, error) {
 }
 
 func printHelp() {
-	fmt.Println("Usage: klog [POD] [CONTAINER]")
-	fmt.Println("Stream Kubernetes pod logs.")
 	fmt.Println("Examples:")
 	fmt.Println("  klog -p my-pod -t / Select containers and show logs for 'my-pod' with timestamp")
 	fmt.Println("  klog -p my-pod -c my-container / Show logs for 'my-container' in 'my-pod'")
