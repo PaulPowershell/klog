@@ -93,9 +93,8 @@ func cleanColorCodes(line string) string {
 func printLogLine(line string, keyword string) {
 	var logEntry map[string]interface{}
 	var colorFunc func(a ...interface{}) string
-
-	// Vérifier si la ligne contient un horodatage
 	var timestamp string
+
 	if timestampFlag {
 		// Extraire l'horodatage et le reste de la ligne
 		if parts := strings.SplitN(line, " ", 2); len(parts) == 2 {
@@ -107,13 +106,14 @@ func printLogLine(line string, keyword string) {
 	lowerLine := strings.ToLower(line)
 
 	switch {
-	case strings.Contains(lowerLine, "level=error"), strings.Contains(lowerLine, "levelerror"):
+	// case strings.Contains(lowerLine, "level=error"), strings.Contains(lowerLine, "levelerror"):
+	case strings.Contains(lowerLine, "error"):
 		colorFunc = color.New(color.FgRed).SprintFunc()
-	case strings.Contains(lowerLine, "level=warn"), strings.Contains(lowerLine, "levelwarn"):
+	case strings.Contains(lowerLine, "warn"):
 		colorFunc = color.New(color.FgYellow).SprintFunc()
-	case strings.Contains(lowerLine, "level=panic"), strings.Contains(lowerLine, "levelpanic"):
+	case strings.Contains(lowerLine, "panic"):
 		colorFunc = color.New(color.FgYellow).SprintFunc()
-	case strings.Contains(lowerLine, "level=debug"), strings.Contains(lowerLine, "leveldebug"):
+	case strings.Contains(lowerLine, "debug"):
 		colorFunc = color.New(color.FgCyan).SprintFunc()
 	default:
 		colorFunc = color.New(color.FgWhite).SprintFunc()
