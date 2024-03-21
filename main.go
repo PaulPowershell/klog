@@ -80,16 +80,6 @@ func highlightKeyword(line string, keyword string, colorFunc func(a ...interface
 	return colorFunc(line)
 }
 
-func cleanColorCodes(line string) string {
-	// Définir l'expression régulière pour les séquences de contrôle de couleur ANSI
-	colorRegex := regexp.MustCompile(`\x1b\[[0-9;]*m`)
-
-	// Supprimer les séquences de contrôle de couleur ANSI de la ligne
-	cleanLine := colorRegex.ReplaceAllString(line, "")
-
-	return cleanLine
-}
-
 func printLogLine(line string, keyword string) {
 	var logEntry map[string]interface{}
 	var colorFunc func(a ...interface{}) string
@@ -145,11 +135,8 @@ func printLogLine(line string, keyword string) {
 	// Appliquer la colorisation au reste de la ligne
 	coloredLine := highlightKeyword(colorFunc(line), keyword, colorFunc)
 
-	// Supprimer les séquences de contrôle de couleur ANSI de la ligne
-	cleanLine := cleanColorCodes(coloredLine)
-
 	// Afficher l'horodatage normalement et le reste coloré
-	fmt.Printf("%s %s\n", timestamp, cleanLine)
+	fmt.Printf("%s %s\n", timestamp, coloredLine)
 }
 
 func selectContainer(containers []v1.Container) string {
