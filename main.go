@@ -103,17 +103,14 @@ func printLogLine(line string, keyword string) {
 		}
 	}
 
-	lowerLine := strings.ToLower(line)
-
 	switch {
-	// case strings.Contains(lowerLine, "level=error"), strings.Contains(lowerLine, "levelerror"):
-	case strings.Contains(lowerLine, "error"):
+	case strings.Contains(line, "level=error"), strings.Contains(line, "levelerror"), strings.Contains(line, "ERROR"):
 		colorFunc = color.New(color.FgRed).SprintFunc()
-	case strings.Contains(lowerLine, "warn"):
+	case strings.Contains(line, "level=warn"), strings.Contains(line, "levelwarn"), strings.Contains(line, "WARN"):
 		colorFunc = color.New(color.FgYellow).SprintFunc()
-	case strings.Contains(lowerLine, "panic"):
+	case strings.Contains(line, "level=panic"), strings.Contains(line, "levelpanic"), strings.Contains(line, "PANIC"):
 		colorFunc = color.New(color.FgYellow).SprintFunc()
-	case strings.Contains(lowerLine, "debug"):
+	case strings.Contains(line, "level=debug"), strings.Contains(line, "leveldebug"), strings.Contains(line, "DEBUG"):
 		colorFunc = color.New(color.FgCyan).SprintFunc()
 	default:
 		colorFunc = color.New(color.FgWhite).SprintFunc()
