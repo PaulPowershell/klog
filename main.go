@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -34,23 +33,31 @@ var (
 	containerFlag string
 	keywordFlag   string
 	timestampFlag bool
+	lastContainer bool
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "klog",
 	Short: "Stream Kubernetes pod logs.",
 	Run: func(cmd *cobra.Command, args []string) {
-		// Utilisez les variables globales définies ci-dessus (podFlag, containerFlag, keywordFlag)
 		klog(podFlag, containerFlag, keywordFlag)
 	},
 }
 
 func init() {
+	// Définir le modèle d'aide pour rootCmd
+	rootCmd.SetHelpTemplate(rootCmd.HelpTemplate() + `
+Exemples:
+  klog -p my-pod -t / Select containers and show logs for 'my-pod' with timestamp
+  klog -p my-pod -c my-container -l / Show logs for 'my-container' in 'my-pod' for last container
+  klog -p my-pod -c my-container -k 'my-keyword' / Show logs for 'my-container' in 'my-pod' and color the 'my-keyword' in line
+`)
 	// Définir les flags pour les arguments
 	rootCmd.Flags().StringVarP(&podFlag, "pod", "p", "", "Nom du pod (obligatoire)")
 	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Nom du conteneur")
 	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Mot clé pour la mise en surbrillance")
 	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", false, "Afficher les horodatages dans les logs")
+	rootCmd.Flags().BoolVarP(&lastContainer, "lastContainer", "l", false, "Afficher les logs du container précédent")
 }
 
 // Fonction pour mettre en surbrillance un mot dans la chaîne
@@ -73,6 +80,16 @@ func highlightKeyword(line string, keyword string, colorFunc func(a ...interface
 	return colorFunc(line)
 }
 
+func cleanColorCodes(line string) string {
+	// Définir l'expression régulière pour les séquences de contrôle de couleur ANSI
+	colorRegex := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+	// Supprimer les séquences de contrôle de couleur ANSI de la ligne
+	cleanLine := colorRegex.ReplaceAllString(line, "")
+
+	return cleanLine
+}
+
 func printLogLine(line string, keyword string) {
 	var logEntry map[string]interface{}
 	var colorFunc func(a ...interface{}) string
@@ -87,12 +104,16 @@ func printLogLine(line string, keyword string) {
 		}
 	}
 
+	lowerLine := strings.ToLower(line)
+
 	switch {
-	case strings.Contains(line, "level=error"), strings.Contains(line, "levelerror"):
+	case strings.Contains(lowerLine, "level=error"), strings.Contains(lowerLine, "levelerror"):
 		colorFunc = color.New(color.FgRed).SprintFunc()
-	case strings.Contains(line, "level=warn"), strings.Contains(line, "levelwarn"):
+	case strings.Contains(lowerLine, "level=warn"), strings.Contains(lowerLine, "levelwarn"):
 		colorFunc = color.New(color.FgYellow).SprintFunc()
-	case strings.Contains(line, "level=debug"), strings.Contains(line, "leveldebug"):
+	case strings.Contains(lowerLine, "level=panic"), strings.Contains(lowerLine, "levelpanic"):
+		colorFunc = color.New(color.FgYellow).SprintFunc()
+	case strings.Contains(lowerLine, "level=debug"), strings.Contains(lowerLine, "leveldebug"):
 		colorFunc = color.New(color.FgCyan).SprintFunc()
 	default:
 		colorFunc = color.New(color.FgWhite).SprintFunc()
@@ -101,10 +122,12 @@ func printLogLine(line string, keyword string) {
 	if err := json.Unmarshal([]byte(line), &logEntry); err == nil {
 		level, exists := logEntry["level"].(string)
 		if exists {
-			switch level {
+			switch strings.ToLower(level) {
 			case "error":
 				colorFunc = color.New(color.FgRed).SprintFunc()
 			case "warn":
+				colorFunc = color.New(color.FgYellow).SprintFunc()
+			case "panic":
 				colorFunc = color.New(color.FgYellow).SprintFunc()
 			case "debug":
 				colorFunc = color.New(color.FgCyan).SprintFunc()
@@ -125,8 +148,11 @@ func printLogLine(line string, keyword string) {
 	// Appliquer la colorisation au reste de la ligne
 	coloredLine := highlightKeyword(colorFunc(line), keyword, colorFunc)
 
+	// Supprimer les séquences de contrôle de couleur ANSI de la ligne
+	cleanLine := cleanColorCodes(coloredLine)
+
 	// Afficher l'horodatage normalement et le reste coloré
-	fmt.Printf("%s %s\n", timestamp, coloredLine)
+	fmt.Printf("%s %s\n", timestamp, cleanLine)
 }
 
 func selectContainer(containers []v1.Container) string {
@@ -250,8 +276,9 @@ func klog(pod string, container string, keyword string) {
 	// Activer le suivi des journaux
 	stream, err := clientset.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
 		Container:  container,
-		Timestamps: timestampFlag,
-		Follow:     true, // Activer le suivi des journaux par défaut
+		Timestamps: timestampFlag, // Afficher les horodatages
+		Follow:     true,          // Activer le suivi des journaux par défaut
+		Previous:   lastContainer, // Afficher les journaux du précédent container
 	}).Stream(ctx)
 	if err != nil {
 		log.Fatalf("Erreur lors du démarrage du suivi des journaux: %v\n", err)
@@ -283,35 +310,8 @@ func loadKubeConfig() (*rest.Config, error) {
 	return config, nil
 }
 
-func printHelp() {
-	fmt.Println("Examples:")
-	fmt.Println("  klog -p my-pod -t / Select containers and show logs for 'my-pod' with timestamp")
-	fmt.Println("  klog -p my-pod -c my-container / Show logs for 'my-container' in 'my-pod'")
-	fmt.Println("  klog -p my-pod -c my-container -k 'my-keyword' / Show logs for 'my-container' in 'my-pod' ans color the 'my-keyword' in line")
-}
-
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
-
-	helpFlag := flag.Bool("h", false, "Show help message")
-
-	flag.Parse()
-
-	if *helpFlag {
-		printHelp()
-		os.Exit(0)
-	}
-
-	pod := flag.Arg(0)
-	container := flag.Arg(1)
-	keyword := flag.Arg(2)
-
-	if pod == "" {
-		log.Fatalf("Le nom du pod est obligatoire.")
-		os.Exit(1)
-	}
-
-	klog(pod, container, keyword)
 }
