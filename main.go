@@ -132,11 +132,16 @@ func printLogLine(line string, keyword string) {
 		}
 	}
 
-	// Appliquer la colorisation au reste de la ligne
-	coloredLine := highlightKeyword(colorFunc(line), keyword, colorFunc)
+	if keyword == "" {
+		fmt.Printf("%s %s\n", timestamp, colorFunc(line))
+		return
+	} else {
+		// Appliquer la colorisation au reste de la ligne
+		coloredLine := highlightKeyword(colorFunc(line), keyword, colorFunc)
 
-	// Afficher l'horodatage normalement et le reste coloré
-	fmt.Printf("%s %s\n", timestamp, coloredLine)
+		// Afficher l'horodatage normalement et le reste coloré
+		fmt.Printf("%s %s\n", timestamp, coloredLine)
+	}
 }
 
 func selectContainer(containers []v1.Container) string {
