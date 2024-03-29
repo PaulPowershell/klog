@@ -62,7 +62,7 @@ Exemples:
 
 // Fonction pour mettre en surbrillance un mot dans la chaîne
 func highlightKeyword(line string, keyword string, colorFunc func(a ...interface{}) string) string {
-	magenta := color.New(color.FgMagenta).SprintFunc()
+	magenta := color.New(color.BgHiMagenta).SprintFunc()
 	re := regexp.MustCompile(keyword)
 	matches := re.FindAllStringIndex(line, -1)
 
