@@ -191,6 +191,9 @@ func selectPod(matchedPods []v1.Pod) string {
 }
 
 func klog(pod string, container string, keyword string) {
+	// Create spinner & Start
+	spinner, _ := pterm.DefaultSpinner.Start("Initialisation en cours")
+
 	config, err := loadKubeConfig()
 	ctx := context.Background()
 
@@ -232,6 +235,8 @@ func klog(pod string, container string, keyword string) {
 			break
 		}
 	}
+
+	spinner.Success("Initialization success")
 
 	if selectedPodName == "" {
 		selectedPodName = selectPod(matchedPods)
