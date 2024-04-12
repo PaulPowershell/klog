@@ -19,7 +19,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 
-	"github.com/fatih/color"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
@@ -68,7 +67,6 @@ func main() {
 
 // Fonction pour mettre en surbrillance un mot dans la chaîne
 func highlightKeyword(line string, keyword string, colorFunc func(a ...interface{}) string) string {
-	magenta := color.New(color.BgHiMagenta).SprintFunc()
 	re := regexp.MustCompile(keyword)
 	matches := re.FindAllStringIndex(line, -1)
 
@@ -76,7 +74,7 @@ func highlightKeyword(line string, keyword string, colorFunc func(a ...interface
 		result := ""
 		startIndex := 0
 		for _, match := range matches {
-			result += colorFunc(line[startIndex:match[0]]) + magenta(line[match[0]:match[1]])
+			result += colorFunc(line[startIndex:match[0]]) + pterm.BgMagenta.Sprint(line[match[0]:match[1]])
 			startIndex = match[1]
 		}
 		result += colorFunc(line[startIndex:])
@@ -101,15 +99,19 @@ func printLogLine(line string, keyword string) {
 
 	switch {
 	case strings.Contains(line, "level=error"), strings.Contains(line, "levelerror"), strings.Contains(line, "ERROR"):
-		colorFunc = color.New(color.FgRed).SprintFunc()
+		// colorFunc = color.New(color.FgRed).SprintFunc()
+		colorFunc = pterm.Red
 	case strings.Contains(line, "level=warn"), strings.Contains(line, "levelwarn"), strings.Contains(line, "WARN"):
-		colorFunc = color.New(color.FgYellow).SprintFunc()
+		// colorFunc = color.New(color.FgYellow).SprintFunc()
+		colorFunc = pterm.Yellow
 	case strings.Contains(line, "level=panic"), strings.Contains(line, "levelpanic"), strings.Contains(line, "PANIC"):
-		colorFunc = color.New(color.FgYellow).SprintFunc()
+		// colorFunc = color.New(color.FgYellow).SprintFunc()
+		colorFunc = pterm.Yellow
 	case strings.Contains(line, "level=debug"), strings.Contains(line, "leveldebug"), strings.Contains(line, "DEBUG"):
-		colorFunc = color.New(color.FgCyan).SprintFunc()
+		// colorFunc = color.New(color.FgCyan).SprintFunc()
+		colorFunc = pterm.Cyan
 	default:
-		colorFunc = color.New(color.FgWhite).SprintFunc()
+		colorFunc = pterm.White
 	}
 
 	if err := json.Unmarshal([]byte(line), &logEntry); err == nil {
@@ -117,15 +119,15 @@ func printLogLine(line string, keyword string) {
 		if exists {
 			switch strings.ToLower(level) {
 			case "error":
-				colorFunc = color.New(color.FgRed).SprintFunc()
+				colorFunc = pterm.Red
 			case "warn":
-				colorFunc = color.New(color.FgYellow).SprintFunc()
+				colorFunc = pterm.Yellow
 			case "panic":
-				colorFunc = color.New(color.FgYellow).SprintFunc()
+				colorFunc = pterm.Yellow
 			case "debug":
-				colorFunc = color.New(color.FgCyan).SprintFunc()
+				colorFunc = pterm.Cyan
 			default:
-				colorFunc = color.New(color.FgWhite).SprintFunc()
+				colorFunc = pterm.White
 			}
 		}
 	}
@@ -139,14 +141,13 @@ func printLogLine(line string, keyword string) {
 	}
 
 	if keyword == "" {
-		fmt.Printf("%s %s\n", timestamp, colorFunc(line))
-		return
+		fmt.Printf("%s %s\n", pterm.FgDarkGray.Sprint(timestamp), colorFunc(line))
 	} else {
 		// Appliquer la colorisation au reste de la ligne
 		coloredLine := highlightKeyword(colorFunc(line), keyword, colorFunc)
 
 		// Afficher l'horodatage normalement et le reste coloré
-		fmt.Printf("%s %s\n", timestamp, coloredLine)
+		fmt.Printf("%s %s\n", pterm.FgDarkGray.Sprint(timestamp), coloredLine)
 	}
 }
 
