@@ -20,12 +20,12 @@ import (
 	"k8s.io/client-go/util/homedir"
 
 	"github.com/fatih/color"
-	"github.com/manifoldco/promptui"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
 const (
-	timestampFormat = "2006-01-02 15:04:05.999999999 MST"
+	timestampFormat = "2006-01-02T15:04:05.000"
 )
 
 var (
@@ -58,6 +58,12 @@ Exemples:
 	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Mot clé pour la mise en surbrillance")
 	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", false, "Afficher les horodatages dans les logs")
 	rootCmd.Flags().BoolVarP(&lastContainer, "lastContainer", "l", false, "Afficher les logs du container précédent")
+}
+
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // Fonction pour mettre en surbrillance un mot dans la chaîne
@@ -145,29 +151,25 @@ func printLogLine(line string, keyword string) {
 }
 
 func selectContainer(containers []v1.Container) string {
+	// Si un seul conteneur est disponible, retourner son nom directement
 	if len(containers) == 1 {
 		return containers[0].Name
 	}
 
-	prompt := promptui.Select{
-		Label: "Sélectionnez le conteneur:",
-		Items: containers,
-		Templates: &promptui.SelectTemplates{
-			Label:    "{{ .Name }}",
-			Active:   "\U000027A4 {{ .Name | cyan | bold }}",
-			Inactive: "  {{ .Name }}",
-		},
-		Size:         5,
-		HideSelected: true,
+	// Utiliser les noms des conteneurs dans l'interface interactive
+	selectorContainer := pterm.DefaultInteractiveSelect.WithDefaultText("Select a container")
+	selectorContainer.MaxHeight = 10
+
+	// Créer une tranche de chaînes pour stocker les noms des conteneurs
+	containerNames := make([]string, len(containers))
+	for i, container := range containers {
+		containerNames[i] = container.Name
 	}
 
-	i, _, err := prompt.Run()
-	if err != nil {
-		log.Fatal("Échec de la sélection du conteneur.", err)
-		os.Exit(1)
-	}
+	selectedOption, _ := selectorContainer.WithOptions(containerNames).Show()
 
-	return containers[i].Name
+	fmt.Print("\033[F\033[K\033[F\033[K") // Supprimer les 2 dernieres lignes
+	return selectedOption
 }
 
 func selectPod(matchedPods []v1.Pod) string {
@@ -180,25 +182,12 @@ func selectPod(matchedPods []v1.Pod) string {
 		podNames[i] = pod.Name
 	}
 
-	prompt := promptui.Select{
-		Label: "Sélectionnez le pod:",
-		Items: podNames,
-		Templates: &promptui.SelectTemplates{
-			Label:    "{{ . }}",
-			Active:   "\U000027A4 {{ . | cyan | bold }}",
-			Inactive: "  {{ . }}",
-		},
-		Size:         5,
-		HideSelected: true,
-	}
+	selectorPod := pterm.DefaultInteractiveSelect.WithDefaultText("Select a pod")
+	selectorPod.MaxHeight = 10
+	selectedOption, _ := selectorPod.WithOptions(podNames).Show() // The Show() method displays the options and waits for the user's input
 
-	i, _, err := prompt.Run()
-	if err != nil {
-		log.Fatal("Échec de la sélection du pod.", err)
-		os.Exit(1)
-	}
-
-	return podNames[i]
+	fmt.Print("\033[F\033[K\033[F\033[K") // Supprimer les 2 dernieres lignes
+	return selectedOption
 }
 
 func klog(pod string, container string, keyword string) {
@@ -206,19 +195,19 @@ func klog(pod string, container string, keyword string) {
 	ctx := context.Background()
 
 	if err != nil {
-		log.Fatalf("Erreur lors du chargement de la configuration Kubernetes: %v\n", err)
+		pterm.Error.Printf("Erreur lors du chargement de la configuration Kubernetes: %v\n", err)
 		os.Exit(1)
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Fatalf("Erreur lors de la création du client Kubernetes: %v\n", err)
+		pterm.Error.Printf("Erreur lors de la création du client Kubernetes: %v\n", err)
 		os.Exit(1)
 	}
 
 	allPods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Fatalf("Erreur lors de la récupération des pods: %v\n", err)
+		pterm.Error.Printf("Erreur lors de la récupération des pods: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -231,7 +220,7 @@ func klog(pod string, container string, keyword string) {
 	}
 
 	if len(matchedPods) == 0 {
-		log.Fatalf("Aucun pod trouvé avec le nom: %s\n", pod)
+		pterm.Error.Printf("Aucun pod trouvé avec le nom: %s\n", pod)
 		os.Exit(1)
 	}
 
@@ -253,7 +242,7 @@ func klog(pod string, container string, keyword string) {
 
 	podInfo, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		log.Fatalf("Erreur lors de la récupération des informations du pod: %v\n", err)
+		pterm.Error.Printf("Erreur lors de la récupération des informations du pod: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -261,7 +250,8 @@ func klog(pod string, container string, keyword string) {
 		container = selectContainer(podInfo.Spec.Containers)
 	}
 
-	fmt.Printf("Affichage du log du container '%s' dans le pod '%s'\n", container, podName)
+	pterm.Info.Printf("Affichage du log du container '%s' dans le pod '%s'\n", container, podName)
+
 	// Activer le suivi des journaux
 	stream, err := clientset.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
 		Container:  container,
@@ -270,7 +260,7 @@ func klog(pod string, container string, keyword string) {
 		Previous:   lastContainer, // Afficher les journaux du précédent container
 	}).Stream(ctx)
 	if err != nil {
-		log.Fatalf("Erreur lors du démarrage du suivi des journaux: %v\n", err)
+		pterm.Error.Printf("Erreur lors du démarrage du suivi des journaux: %v\n", err)
 		os.Exit(1)
 	}
 	defer stream.Close()
@@ -283,7 +273,7 @@ func klog(pod string, container string, keyword string) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatalf("Erreur lors de la lecture des journaux: %v\n", err)
+		pterm.Error.Printf("Erreur lors de la lecture des journaux: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -297,10 +287,4 @@ func loadKubeConfig() (*rest.Config, error) {
 		return nil, err
 	}
 	return config, nil
-}
-
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
-	}
 }
