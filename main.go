@@ -53,6 +53,7 @@ Exemples:
 `)
 	// Définir les flags pour les arguments
 	rootCmd.Flags().StringVarP(&podFlag, "pod", "p", "", "Nom du pod (obligatoire)")
+	rootCmd.MarkFlagRequired("pod")
 	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Nom du conteneur")
 	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Mot clé pour la mise en surbrillance")
 	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", false, "Afficher les horodatages dans les logs")
@@ -99,16 +100,12 @@ func printLogLine(line string, keyword string) {
 
 	switch {
 	case strings.Contains(line, "level=error"), strings.Contains(line, "levelerror"), strings.Contains(line, "ERROR"):
-		// colorFunc = color.New(color.FgRed).SprintFunc()
 		colorFunc = pterm.Red
 	case strings.Contains(line, "level=warn"), strings.Contains(line, "levelwarn"), strings.Contains(line, "WARN"):
-		// colorFunc = color.New(color.FgYellow).SprintFunc()
 		colorFunc = pterm.Yellow
 	case strings.Contains(line, "level=panic"), strings.Contains(line, "levelpanic"), strings.Contains(line, "PANIC"):
-		// colorFunc = color.New(color.FgYellow).SprintFunc()
 		colorFunc = pterm.Yellow
 	case strings.Contains(line, "level=debug"), strings.Contains(line, "leveldebug"), strings.Contains(line, "DEBUG"):
-		// colorFunc = color.New(color.FgCyan).SprintFunc()
 		colorFunc = pterm.Cyan
 	default:
 		colorFunc = pterm.White
