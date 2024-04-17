@@ -192,13 +192,13 @@ func klog(pod string, container string, keyword string) {
 	// Create spinner & Start
 	spinner, _ := pterm.DefaultSpinner.Start("Initialisation en cours")
 
-	config, err := loadKubeConfig()
-	ctx := context.Background()
+	var matchedPods []v1.Pod
+	var namespace string
+	var selectedPodName string
+	var podName string
 
-	if err != nil {
-		pterm.Error.Printf("Erreur lors du chargement de la configuration Kubernetes: %v\n", err)
-		os.Exit(1)
-	}
+	config := loadKubeConfig()
+	ctx := context.Background()
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -212,8 +212,6 @@ func klog(pod string, container string, keyword string) {
 		os.Exit(1)
 	}
 
-	var matchedPods []v1.Pod
-
 	for _, p := range allPods.Items {
 		if matched, _ := regexp.MatchString(pod, p.Name); matched {
 			matchedPods = append(matchedPods, p)
@@ -225,8 +223,6 @@ func klog(pod string, container string, keyword string) {
 		os.Exit(1)
 	}
 
-	var selectedPodName string
-
 	for _, p := range matchedPods {
 		if p.Name == pod {
 			selectedPodName = pod
@@ -237,11 +233,15 @@ func klog(pod string, container string, keyword string) {
 	spinner.Success("Initialization success")
 
 	if selectedPodName == "" {
-		selectedPodName = selectPod(matchedPods)
+		podName = selectPod(matchedPods)
 	}
 
-	podName := selectedPodName
-	namespace := matchedPods[0].Namespace
+	for _, p := range matchedPods {
+		if p.Name == podName {
+			namespace = p.Namespace
+			break
+		}
+	}
 
 	podInfo, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
@@ -281,13 +281,14 @@ func klog(pod string, container string, keyword string) {
 	}
 }
 
-func loadKubeConfig() (*rest.Config, error) {
+func loadKubeConfig() *rest.Config {
 	home := homedir.HomeDir()
 	configPath := filepath.Join(home, ".kube", "config")
 
 	config, err := clientcmd.BuildConfigFromFlags("", configPath)
 	if err != nil {
-		return nil, err
+		pterm.Error.Printf("Erreur lors du chargement de la configuration Kubernetes: %v\n", err)
+		os.Exit(1)
 	}
-	return config, nil
+	return config
 }
