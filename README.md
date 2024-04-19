@@ -31,14 +31,27 @@ Visit the [Releases](https://github.com/VegaCorporoptions/Klog/releases/latest) 
 Usage
 To view logs for a specific pod, run the application with the pod name as an argument:
 Run the Ksub application:
-```bash
-klog <[mandatory]pod name> <[option]container name>
-klog -h
+```yaml
+Usage:
+  klog [flags]
+
+Flags:
+  -c, --container string   Nom du conteneur
+  -h, --help               help for klog
+  -k, --keyword string     Mot clé pour la mise en surbrillance
+  -l, --lastContainer      Afficher les logs du container précédent
+  -p, --pod string         Nom du pod (obligatoire)
+  -t, --timestamp          Afficher les horodatages dans les logs
+
+Exemples:
+  klog -p my-pod -t / Select containers and show logs for 'my-pod' with timestamp
+  klog -p my-pod -c my-container -l / Show logs for 'my-container' in 'my-pod' for last container
+  klog -p my-pod -c my-container -k 'my-keyword' / Show logs for 'my-container' in 'my-pod' and color the 'my-keyword' in line
 ```
 Select `pod` or `container` if you have multiple choices
 
 ## Demo
-![klog.gif](https://github.com/VegaCorporoptions/Klog/blob/main/klog.gif?raw=true)
+![klog.gif](klog.gif)
 
 License
 This project is licensed under the MIT License. See the LICENSE file for details.
