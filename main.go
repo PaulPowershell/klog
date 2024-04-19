@@ -44,20 +44,20 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	// Définir le modèle d'aide pour rootCmd
+	// Set the help template for rootCmd
 	rootCmd.SetHelpTemplate(rootCmd.HelpTemplate() + `
-Exemples:
+Examples:
   klog -p my-pod -t / Select containers and show logs for 'my-pod' with timestamp
   klog -p my-pod -c my-container -l / Show logs for 'my-container' in 'my-pod' for last container
   klog -p my-pod -c my-container -k 'my-keyword' / Show logs for 'my-container' in 'my-pod' and color the 'my-keyword' in line
 `)
-	// Définir les flags pour les arguments
-	rootCmd.Flags().StringVarP(&podFlag, "pod", "p", "", "Nom du pod (obligatoire)")
+	// Set flags for arguments
+	rootCmd.Flags().StringVarP(&podFlag, "pod", "p", "", "Pod name (required)")
 	rootCmd.MarkFlagRequired("pod")
-	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Nom du conteneur")
-	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Mot clé pour la mise en surbrillance")
-	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", false, "Afficher les horodatages dans les logs")
-	rootCmd.Flags().BoolVarP(&lastContainer, "lastContainer", "l", false, "Afficher les logs du container précédent")
+	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Container name")
+	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Keyword for highlighting")
+	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", false, "Display timestamps in logs")
+	rootCmd.Flags().BoolVarP(&lastContainer, "lastContainer", "l", false, "Display logs for the previous container")
 }
 
 func main() {
@@ -66,7 +66,7 @@ func main() {
 	}
 }
 
-// Fonction pour mettre en surbrillance un mot dans la chaîne
+// Function to highlight a word in the string
 func highlightKeyword(line string, keyword string, colorFunc func(a ...interface{}) string) string {
 	re := regexp.MustCompile(keyword)
 	matches := re.FindAllStringIndex(line, -1)
@@ -91,7 +91,7 @@ func printLogLine(line string, keyword string) {
 	var timestamp string
 
 	if timestampFlag {
-		// Extraire l'horodatage et le reste de la ligne
+		// Extract timestamp and rest of the line
 		if parts := strings.SplitN(line, " ", 2); len(parts) == 2 {
 			timestamp = parts[0]
 			line = parts[1]
@@ -129,7 +129,7 @@ func printLogLine(line string, keyword string) {
 		}
 	}
 
-	// Convertir la chaîne d'horodatage en objet time.Time
+	// Convert timestamp string to time.Time object
 	if timestamp != "" {
 		t, err := time.Parse(time.RFC3339Nano, timestamp)
 		if err == nil {
@@ -140,25 +140,25 @@ func printLogLine(line string, keyword string) {
 	if keyword == "" {
 		fmt.Printf("%s %s\n", pterm.FgDarkGray.Sprint(timestamp), colorFunc(line))
 	} else {
-		// Appliquer la colorisation au reste de la ligne
+		// Apply colorization to the rest of the line
 		coloredLine := highlightKeyword(colorFunc(line), keyword, colorFunc)
 
-		// Afficher l'horodatage normalement et le reste coloré
+		// Print timestamp normally and the rest colored
 		fmt.Printf("%s %s\n", pterm.FgDarkGray.Sprint(timestamp), coloredLine)
 	}
 }
 
 func selectContainer(containers []v1.Container) string {
-	// Si un seul conteneur est disponible, retourner son nom directement
+	// If only one container is available, return its name directly
 	if len(containers) == 1 {
 		return containers[0].Name
 	}
 
-	// Utiliser les noms des conteneurs dans l'interface interactive
+	// Use container names in interactive interface
 	selectorContainer := pterm.DefaultInteractiveSelect.WithDefaultText("Select a container")
 	selectorContainer.MaxHeight = 10
 
-	// Créer une tranche de chaînes pour stocker les noms des conteneurs
+	// Create a slice of strings to store container names
 	containerNames := make([]string, len(containers))
 	for i, container := range containers {
 		containerNames[i] = container.Name
@@ -166,7 +166,7 @@ func selectContainer(containers []v1.Container) string {
 
 	selectedOption, _ := selectorContainer.WithOptions(containerNames).Show()
 
-	fmt.Print("\033[F\033[K\033[F\033[K") // Supprimer les 2 dernieres lignes
+	fmt.Print("\033[F\033[K\033[F\033[K") // Remove last 2 lines
 	return selectedOption
 }
 
@@ -184,13 +184,13 @@ func selectPod(matchedPods []v1.Pod) string {
 	selectorPod.MaxHeight = 10
 	selectedOption, _ := selectorPod.WithOptions(podNames).Show() // The Show() method displays the options and waits for the user's input
 
-	fmt.Print("\033[F\033[K\033[F\033[K") // Supprimer les 2 dernieres lignes
+	fmt.Print("\033[F\033[K\033[F\033[K") // Remove last 2 lines
 	return selectedOption
 }
 
 func klog(pod string, container string, keyword string) {
 	// Create spinner & Start
-	spinner, _ := pterm.DefaultSpinner.Start("Initialisation en cours")
+	spinner, _ := pterm.DefaultSpinner.Start("Initialization in progress")
 
 	var matchedPods []v1.Pod
 	var namespace string
@@ -202,13 +202,13 @@ func klog(pod string, container string, keyword string) {
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		pterm.Error.Printf("Erreur lors de la création du client Kubernetes: %v\n", err)
+		pterm.Error.Printf("Error creating Kubernetes client: %v\n", err)
 		os.Exit(1)
 	}
 
 	allPods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 	if err != nil {
-		pterm.Error.Printf("Erreur lors de la récupération des pods: %v\n", err)
+		pterm.Error.Printf("Error fetching pods: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -219,7 +219,7 @@ func klog(pod string, container string, keyword string) {
 	}
 
 	if len(matchedPods) == 0 {
-		pterm.Error.Printf("Aucun pod trouvé avec le nom: %s\n", pod)
+		pterm.Error.Printf("No pod found with name: %s\n", pod)
 		os.Exit(1)
 	}
 
@@ -245,7 +245,7 @@ func klog(pod string, container string, keyword string) {
 
 	podInfo, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		pterm.Error.Printf("Erreur lors de la récupération des informations du pod: %v\n", err)
+		pterm.Error.Printf("Error fetching pod information: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -253,30 +253,30 @@ func klog(pod string, container string, keyword string) {
 		container = selectContainer(podInfo.Spec.Containers)
 	}
 
-	pterm.Info.Printf("Affichage du log du container '%s' dans le pod '%s'\n", container, podName)
+	pterm.Info.Printf("Displaying logs for container '%s' in pod '%s'\n", container, podName)
 
-	// Activer le suivi des journaux
+	// Enable log streaming
 	stream, err := clientset.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
 		Container:  container,
-		Timestamps: timestampFlag, // Afficher les horodatages
-		Follow:     true,          // Activer le suivi des journaux par défaut
-		Previous:   lastContainer, // Afficher les journaux du précédent container
+		Timestamps: timestampFlag, // Display timestamps
+		Follow:     true,          // Enable log streaming by default
+		Previous:   lastContainer, // Display logs of the previous container
 	}).Stream(ctx)
 	if err != nil {
-		pterm.Error.Printf("Erreur lors du démarrage du suivi des journaux: %v\n", err)
+		pterm.Error.Printf("Error starting log streaming: %v\n", err)
 		os.Exit(1)
 	}
 	defer stream.Close()
 
-	// Copier le flux vers la sortie standard, en mettant en surbrillance les lignes de logs
+	// Copy stream to standard output, highlighting log lines
 	scanner := bufio.NewScanner(stream)
 	for scanner.Scan() {
-		// Utiliser la fonction pour mettre en surbrillance le mot clé
+		// Use function to highlight keyword
 		printLogLine(scanner.Text(), keyword)
 	}
 
 	if err := scanner.Err(); err != nil {
-		pterm.Error.Printf("Erreur lors de la lecture des journaux: %v\n", err)
+		pterm.Error.Printf("Error reading logs: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -287,7 +287,7 @@ func loadKubeConfig() *rest.Config {
 
 	config, err := clientcmd.BuildConfigFromFlags("", configPath)
 	if err != nil {
-		pterm.Error.Printf("Erreur lors du chargement de la configuration Kubernetes: %v\n", err)
+		pterm.Error.Printf("Error loading Kubernetes configuration: %v\n", err)
 		os.Exit(1)
 	}
 	return config

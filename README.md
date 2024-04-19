@@ -24,26 +24,26 @@ Build the Go application:
 go build .
 ```
 
-## Download Ksub Executable
-You can download the executable for Ksub directly from the latest release with its version. This allows you to use Ksub without the need to build it yourself. Here are the steps to download the executable for your system:
+## Download Klog Executable
+You can download the executable for Klog directly from the latest release with its version. This allows you to use Klog without the need to build it yourself. Here are the steps to download the executable for your system:
 Visit the [Releases](https://github.com/VegaCorporoptions/Klog/releases/latest) page.
 
 Usage
 To view logs for a specific pod, run the application with the pod name as an argument:
-Run the Ksub application:
+Run the Klog application:
 ```yaml
 Usage:
   klog [flags]
 
 Flags:
-  -c, --container string   Nom du conteneur
+  -c, --container string   Container name
   -h, --help               help for klog
-  -k, --keyword string     Mot clé pour la mise en surbrillance
-  -l, --lastContainer      Afficher les logs du container précédent
-  -p, --pod string         Nom du pod (obligatoire)
-  -t, --timestamp          Afficher les horodatages dans les logs
+  -k, --keyword string     Keyword for highlighting
+  -l, --lastContainer      Display logs for the previous container
+  -p, --pod string         Pod name (required)
+  -t, --timestamp          Display timestamps in logs
 
-Exemples:
+Examples:
   klog -p my-pod -t / Select containers and show logs for 'my-pod' with timestamp
   klog -p my-pod -c my-container -l / Show logs for 'my-container' in 'my-pod' for last container
   klog -p my-pod -c my-container -k 'my-keyword' / Show logs for 'my-container' in 'my-pod' and color the 'my-keyword' in line
