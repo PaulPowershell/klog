@@ -103,6 +103,8 @@ func printLogLine(line string, keyword string) {
 		colorFunc = pterm.Red
 	case strings.Contains(line, "level=warn"), strings.Contains(line, "levelwarn"), strings.Contains(line, "WARN"):
 		colorFunc = pterm.Yellow
+	case strings.Contains(line, "level=warning"), strings.Contains(line, "levelwarn"), strings.Contains(line, "WARN"):
+		colorFunc = pterm.Yellow
 	case strings.Contains(line, "level=panic"), strings.Contains(line, "levelpanic"), strings.Contains(line, "PANIC"):
 		colorFunc = pterm.Yellow
 	case strings.Contains(line, "level=debug"), strings.Contains(line, "leveldebug"), strings.Contains(line, "DEBUG"):
@@ -118,6 +120,8 @@ func printLogLine(line string, keyword string) {
 			case "error":
 				colorFunc = pterm.Red
 			case "warn":
+				colorFunc = pterm.Yellow
+			case "warning":
 				colorFunc = pterm.Yellow
 			case "panic":
 				colorFunc = pterm.Yellow
