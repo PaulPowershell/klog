@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -62,7 +61,7 @@ Examples:
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		pterm.Error.Print(err)
 	}
 }
 
