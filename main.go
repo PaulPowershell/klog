@@ -24,6 +24,14 @@ import (
 
 const (
 	timestampFormat = "2006-01-02T15:04:05.000"
+	errorKeywords   = "level=error|level=err|levelerror|err=|[error]|[ERROR]|[err]|[ERR]| ERRO: | Err: | ERR | ERROR | CRIT "
+	warningKeywords = "level=warning|level=warn|levelwarn|warn=|[warning]|[WARNING]|[warn]|[WARN]| WARN: | WARN | WARNING "
+	panicKeywords   = "level=panic|levelpanic|[panic]|[PANIC]| panic:| PANIC "
+	debugKeywords   = "level=debug|leveldebug|[debug]|[DEBUG]| debug:| DEBUG "
+
+	errorLevelJson = "error|critical|fatal"
+	warnLevelJson  = "warn|warning|panic"
+	debugLevelJson = "debug"
 )
 
 var (
@@ -84,6 +92,15 @@ func highlightKeyword(line string, keyword string, colorFunc func(a ...interface
 	return colorFunc(line)
 }
 
+func containsAny(line string, substrings ...string) bool {
+	for _, s := range substrings {
+		if strings.Contains((line), s) {
+			return true
+		}
+	}
+	return false
+}
+
 func printLogLine(line string, keyword string) {
 	var logEntry map[string]interface{}
 	var colorFunc func(a ...interface{}) string
@@ -98,15 +115,13 @@ func printLogLine(line string, keyword string) {
 	}
 
 	switch {
-	case strings.Contains(line, "level=error"), strings.Contains(line, "levelerror"), strings.Contains(line, "ERROR"):
+	case containsAny(line, strings.Split(errorKeywords, "|")...):
 		colorFunc = pterm.Red
-	case strings.Contains(line, "level=warn"), strings.Contains(line, "levelwarn"), strings.Contains(line, "WARN"):
+	case containsAny(line, strings.Split(warningKeywords, "|")...):
 		colorFunc = pterm.Yellow
-	case strings.Contains(line, "level=warning"), strings.Contains(line, "levelwarn"), strings.Contains(line, "WARN"):
+	case containsAny(line, strings.Split(panicKeywords, "|")...):
 		colorFunc = pterm.Yellow
-	case strings.Contains(line, "level=panic"), strings.Contains(line, "levelpanic"), strings.Contains(line, "PANIC"):
-		colorFunc = pterm.Yellow
-	case strings.Contains(line, "level=debug"), strings.Contains(line, "leveldebug"), strings.Contains(line, "DEBUG"):
+	case containsAny(line, strings.Split(debugKeywords, "|")...):
 		colorFunc = pterm.Cyan
 	default:
 		colorFunc = pterm.White
@@ -115,16 +130,13 @@ func printLogLine(line string, keyword string) {
 	if err := json.Unmarshal([]byte(line), &logEntry); err == nil {
 		level, exists := logEntry["level"].(string)
 		if exists {
-			switch strings.ToLower(level) {
-			case "error":
+			levelLower := strings.ToLower(level)
+			switch {
+			case containsAny(levelLower, strings.Split(errorLevelJson, "|")...):
 				colorFunc = pterm.Red
-			case "warn":
+			case containsAny(levelLower, strings.Split(warnLevelJson, "|")...):
 				colorFunc = pterm.Yellow
-			case "warning":
-				colorFunc = pterm.Yellow
-			case "panic":
-				colorFunc = pterm.Yellow
-			case "debug":
+			case containsAny(levelLower, strings.Split(debugLevelJson, "|")...):
 				colorFunc = pterm.Cyan
 			default:
 				colorFunc = pterm.White
