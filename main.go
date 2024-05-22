@@ -26,8 +26,8 @@ const (
 	timestampFormat = "2006-01-02T15:04:05.000"
 	errorKeywords   = "level=error|level=err|levelerror|err=|[error]|[ERROR]|[err]|[ERR]| ERRO: | Err: | ERR | ERROR | CRIT "
 	warningKeywords = "level=warning|level=warn|levelwarn|warn=|[warning]|[WARNING]|[warn]|[WARN]| WARN: | WARN | WARNING "
-	panicKeywords   = "level=panic|levelpanic|[panic]|[PANIC]| panic:| PANIC "
-	debugKeywords   = "level=debug|leveldebug|[debug]|[DEBUG]| debug:| DEBUG "
+	panicKeywords   = "level=panic|levelpanic|[panic]|[PANIC]| panic:|PANIC "
+	debugKeywords   = "level=debug|leveldebug|[debug]|[DEBUG]| debug:|DEBUG "
 
 	errorLevelJson = "error|critical|fatal"
 	warnLevelJson  = "warn|warning|panic"
@@ -40,6 +40,8 @@ var (
 	keywordFlag   string
 	timestampFlag bool
 	lastContainer bool
+	sinceTimeFlag int
+	tailLinesFlag int
 )
 
 var rootCmd = &cobra.Command{
@@ -54,9 +56,10 @@ func init() {
 	// Set the help template for rootCmd
 	rootCmd.SetHelpTemplate(rootCmd.HelpTemplate() + `
 Examples:
-  klog -p my-pod -t / Select containers and show logs for 'my-pod' with timestamp
-  klog -p my-pod -c my-container -l / Show logs for 'my-container' in 'my-pod' for last container
-  klog -p my-pod -c my-container -k 'my-keyword' / Show logs for 'my-container' in 'my-pod' and color the 'my-keyword' in line
+  klog -p <pod-name> -t // Select containers and show logs for <pod-name> with timestamp
+  klog -p <pod-name> -c <my-container> -l // Show logs for <my-container> in <pod-name> for last container
+  klog -p <pod-name> -k <my-keyword> // Show logs for <pod-name> and color the <my-keyword> in line
+  klog -p <pod-name> -s 24 -T 50 // Show logs for <pod-name> for 24 hours with last 50 lines
 `)
 	// Set flags for arguments
 	rootCmd.Flags().StringVarP(&podFlag, "pod", "p", "", "Pod name (required)")
@@ -65,6 +68,8 @@ Examples:
 	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Keyword for highlighting")
 	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", false, "Display timestamps in logs")
 	rootCmd.Flags().BoolVarP(&lastContainer, "lastContainer", "l", false, "Display logs for the previous container")
+	rootCmd.Flags().IntVarP(&sinceTimeFlag, "sinceTime", "s", 0, "Show logs since N hours ago")
+	rootCmd.Flags().IntVarP(&tailLinesFlag, "tailLines", "T", 0, "Show last N lines of logs")
 }
 
 func main() {
@@ -270,13 +275,26 @@ func klog(pod string, container string, keyword string) {
 
 	pterm.Info.Printf("Displaying logs for container '%s' in pod '%s'\n", container, podName)
 
-	// Enable log streaming
-	stream, err := clientset.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
+	// Construct PodLogOptions
+	podLogOptions := &v1.PodLogOptions{
 		Container:  container,
 		Timestamps: timestampFlag, // Display timestamps
 		Follow:     true,          // Enable log streaming by default
 		Previous:   lastContainer, // Display logs of the previous container
-	}).Stream(ctx)
+	}
+
+	if sinceTimeFlag > 0 {
+		sinceTime := metav1.NewTime(time.Now().Add(-time.Duration(sinceTimeFlag) * time.Hour))
+		podLogOptions.SinceTime = &sinceTime
+	}
+
+	if tailLinesFlag > 0 {
+		tailLines := int64(tailLinesFlag)
+		podLogOptions.TailLines = &tailLines
+	}
+
+	// Enable log streaming
+	stream, err := clientset.CoreV1().Pods(namespace).GetLogs(podName, podLogOptions).Stream(ctx)
 	if err != nil {
 		pterm.Error.Printf("Error starting log streaming: %v\n", err)
 		os.Exit(1)
