@@ -8,8 +8,8 @@ Klog is a command-line tool for streaming logs from Kubernetes pods. It allows y
 
 Before using this application, ensure you have the following prerequisites:
 
-- Go installed on your system. (to build)
-- `kubectl` configured with access to your Kubernetes cluster.
+- Go installed on your system (to build)
+- `kubectl` configured with access to your Kubernetes cluster
 
 ## Installation (optionnal)
 Clone the repository to your local machine:
@@ -28,7 +28,7 @@ go build .
 You can download the executable for Klog directly from the latest release with its version. This allows you to use Klog without the need to build it yourself. Here are the steps to download the executable for your system:
 Visit the [Releases](https://github.com/VegaCorporoptions/Klog/releases/latest) page.
 
-Usage
+## Usage
 To view logs for a specific pod, run the application with the pod name as an argument:
 Run the Klog application:
 ```yaml
@@ -41,14 +41,17 @@ Flags:
   -k, --keyword string     Keyword for highlighting
   -l, --lastContainer      Display logs for the previous container
   -p, --pod string         Pod name (required)
+  -s, --sinceTime int      Show logs since N hours ago
+  -T, --tailLines int      Show last N lines of logs
   -t, --timestamp          Display timestamps in logs
 
 Examples:
-  klog -p my-pod -t / Select containers and show logs for 'my-pod' with timestamp
-  klog -p my-pod -c my-container -l / Show logs for 'my-container' in 'my-pod' for last container
-  klog -p my-pod -c my-container -k 'my-keyword' / Show logs for 'my-container' in 'my-pod' and color the 'my-keyword' in line
+  klog -p <pod-name> -t                         // Select containers and show logs for <pod-name> with timestamp
+  klog -p <pod-name> -c <my-container> -l       // Show logs for <my-container> in <pod-name> for last container
+  klog -p <pod-name> -k <my-keyword>            // Show logs for <pod-name> and color the <my-keyword> in line
+  klog -p <pod-name> -s 24 -T 50                // Show logs for <pod-name> for 24 hours with last 50 lines
 ```
-Select `pod` or `container` if you have multiple choices
+You can select `pod` or `container` if you have multiple choices
 
 ## Demo
 ![klog.gif](klog.gif)

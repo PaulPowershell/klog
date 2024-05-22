@@ -56,10 +56,10 @@ func init() {
 	// Set the help template for rootCmd
 	rootCmd.SetHelpTemplate(rootCmd.HelpTemplate() + `
 Examples:
-  klog -p <pod-name> -t // Select containers and show logs for <pod-name> with timestamp
-  klog -p <pod-name> -c <my-container> -l // Show logs for <my-container> in <pod-name> for last container
-  klog -p <pod-name> -k <my-keyword> // Show logs for <pod-name> and color the <my-keyword> in line
-  klog -p <pod-name> -s 24 -T 50 // Show logs for <pod-name> for 24 hours with last 50 lines
+  klog -p <pod-name> -t				// Select containers and show logs for <pod-name> with timestamp
+  klog -p <pod-name> -c <my-container> -l 	// Show logs for <my-container> in <pod-name> for last container
+  klog -p <pod-name> -k <my-keyword> 		// Show logs for <pod-name> and color the <my-keyword> in line
+  klog -p <pod-name> -s 24 -T 50		// Show logs for <pod-name> for 24 hours with last 50 lines
 `)
 	// Set flags for arguments
 	rootCmd.Flags().StringVarP(&podFlag, "pod", "p", "", "Pod name (required)")
