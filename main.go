@@ -35,7 +35,6 @@ const (
 )
 
 var (
-	podFlag       string
 	containerFlag string
 	keywordFlag   string
 	timestampFlag bool
@@ -48,6 +47,13 @@ var rootCmd = &cobra.Command{
 	Use:   "klog",
 	Short: "Stream Kubernetes pod logs.",
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			pterm.Error.Println("Pod name required")
+			_ = cmd.Usage()
+			os.Exit(1)
+		}
+
+		podFlag := args[0]
 		klog(podFlag, containerFlag, keywordFlag)
 	},
 }
@@ -56,14 +62,12 @@ func init() {
 	// Set the help template for rootCmd
 	rootCmd.SetHelpTemplate(rootCmd.HelpTemplate() + `
 Examples:
-  klog -p <pod-name> -t				// Select containers and show logs for <pod-name> with timestamp
-  klog -p <pod-name> -c <my-container> -l 	// Show logs for <my-container> in <pod-name> for last container
-  klog -p <pod-name> -k <my-keyword> 		// Show logs for <pod-name> and color the <my-keyword> in line
-  klog -p <pod-name> -s 24 -T 50		// Show logs for <pod-name> for 24 hours with last 50 lines
+  klog <pod-name> -t			// Select containers and show logs for <pod-name> with timestamp
+  klog <pod-name> -c <my-container> -l	// Show logs for <my-container> in <pod-name> for last container
+  klog <pod-name> -k <my-keyword>	// Show logs for <pod-name> and color the <my-keyword> in line
+  klog <pod-name> -s 24 -T 50		// Show logs for <pod-name> for 24 hours with last 50 lines
 `)
 	// Set flags for arguments
-	rootCmd.Flags().StringVarP(&podFlag, "pod", "p", "", "Pod name (required)")
-	rootCmd.MarkFlagRequired("pod")
 	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Container name")
 	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Keyword for highlighting")
 	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", false, "Display timestamps in logs")
