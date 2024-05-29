@@ -65,7 +65,7 @@ Examples:
   klog <pod-name> -t			// Select containers and show logs for <pod-name> with timestamp
   klog <pod-name> -c <my-container> -l	// Show logs for <my-container> in <pod-name> for last container
   klog <pod-name> -k <my-keyword>	// Show logs for <pod-name> and color the <my-keyword> in line
-  klog <pod-name> -s 24 -T 50		// Show logs for <pod-name> for 24 hours with last 50 lines
+  klog <pod-name> -s 24 - 50		// Show logs for <pod-name> with sinceTime 24 hours and last 50 tailLines
 `)
 	// Set flags for arguments
 	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Container name")

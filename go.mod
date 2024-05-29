@@ -1,6 +1,6 @@
 module main
 
-go 1.21.6
+go 1.22.3
 
 require (
 	github.com/pterm/pterm v0.12.79
