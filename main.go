@@ -325,7 +325,7 @@ func loadKubeConfig() *rest.Config {
 	config, err := clientcmd.BuildConfigFromFlags("", configPath)
 	if err != nil {
 		pterm.Error.Printf("Error loading Kubernetes configuration: %v\n", err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 	return config
 }
