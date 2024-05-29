@@ -50,7 +50,7 @@ var rootCmd = &cobra.Command{
 		if len(args) == 0 {
 			pterm.Error.Println("Pod name required")
 			_ = cmd.Usage()
-			os.Exit(1)
+			os.Exit(128)
 		}
 
 		podFlag := args[0]
