@@ -50,7 +50,7 @@ var rootCmd = &cobra.Command{
 		if len(args) == 0 {
 			pterm.Error.Println("Pod name required")
 			_ = cmd.Usage()
-			os.Exit(1)
+			os.Exit(128)
 		}
 
 		podFlag := args[0]
@@ -65,7 +65,7 @@ Examples:
   klog <pod-name> -t			// Select containers and show logs for <pod-name> with timestamp
   klog <pod-name> -c <my-container> -l	// Show logs for <my-container> in <pod-name> for last container
   klog <pod-name> -k <my-keyword>	// Show logs for <pod-name> and color the <my-keyword> in line
-  klog <pod-name> -s 24 -T 50		// Show logs for <pod-name> for 24 hours with last 50 lines
+  klog <pod-name> -s 24 - 50		// Show logs for <pod-name> with sinceTime 24 hours and last 50 tailLines
 `)
 	// Set flags for arguments
 	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Container name")
@@ -325,7 +325,7 @@ func loadKubeConfig() *rest.Config {
 	config, err := clientcmd.BuildConfigFromFlags("", configPath)
 	if err != nil {
 		pterm.Error.Printf("Error loading Kubernetes configuration: %v\n", err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 	return config
 }
