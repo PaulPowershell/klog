@@ -42,7 +42,7 @@ Flags:
   -l, --lastContainer      Display logs for the previous container
   -s, --sinceTime int      Show logs since N hours ago
   -T, --tailLines int      Show last N lines of logs
-  -t, --timestamp          No timestamps in logs
+  -t, --timestamp          Hide timestamps in logs
 
 Examples:
   klog <pod-name> -t                    // Select containers and show logs for <pod-name> without timestamp
