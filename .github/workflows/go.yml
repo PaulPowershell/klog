@@ -9,6 +9,7 @@ on:
       - 'main'
     paths: 
       - ./main.go
+      - ./*
 
 jobs:
   build-windows-386:
