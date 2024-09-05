@@ -248,7 +248,7 @@ func klog(pod string, container string, keyword string) {
 
 	allPods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		pterm.Error.Printf("Error fetching pods in namespace '%s': %v\n", namespace, err)
+		pterm.Error.Printf("Error fetching pods: %v\n", err)
 		os.Exit(1)
 	}
 
