@@ -37,6 +37,7 @@ const (
 var (
 	containerFlag string
 	keywordFlag   string
+	namespaceFlag string
 	timestampFlag bool = true // Timestamp is enabled by default
 	lastContainer bool
 	sinceTimeFlag int
@@ -70,10 +71,12 @@ Examples:
   klog <pod-name> -c <my-container> -l	// Show logs for <my-container> in <pod-name> for last container
   klog <pod-name> -k <my-keyword>	// Show logs for <pod-name> and color the <my-keyword> in line
   klog <pod-name> -s 24 - 50		// Show logs for <pod-name> with sinceTime 24 hours and last 50 tailLines
+  klog <pod-name> -n <namespace>	// Show logs for <pod-name> in the specified namespace
 `)
 	// Set flags for arguments
 	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Container name")
 	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Keyword for highlighting")
+	rootCmd.Flags().StringVarP(&namespaceFlag, "namespace", "n", "", "Namespace (default is empty, meaning all namespaces)")
 	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", true, "Hide timestamps in logs (default showed)")
 	rootCmd.Flags().BoolVarP(&lastContainer, "lastContainer", "l", false, "Display logs for the previous container")
 	rootCmd.Flags().IntVarP(&sinceTimeFlag, "sinceTime", "s", 0, "Show logs since N hours ago")
@@ -84,6 +87,11 @@ func main() {
 	if err := rootCmd.Execute(); err != nil {
 		pterm.Error.Print(err)
 	}
+}
+
+func checkIfNamespaceExists(clientset *kubernetes.Clientset, namespace string) bool {
+	_, err := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+	return err == nil
 }
 
 // Function to highlight a word in the string
@@ -221,9 +229,7 @@ func klog(pod string, container string, keyword string) {
 	spinner, _ := pterm.DefaultSpinner.Start("Initialization in progress")
 
 	var matchedPods []v1.Pod
-	var namespace string
-	var selectedPodName string
-	var podName string
+	var namespace string = namespaceFlag // Utilisation du namespace spécifié ou vide
 
 	config := loadKubeConfig()
 	ctx := context.Background()
@@ -234,9 +240,15 @@ func klog(pod string, container string, keyword string) {
 		os.Exit(1)
 	}
 
-	allPods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	// Vérifie si le namespace existe si spécifié
+	if namespace != "" && !checkIfNamespaceExists(clientset, namespace) {
+		pterm.Error.Printf("Namespace '%s' does not exist\n", namespace)
+		os.Exit(1)
+	}
+
+	allPods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		pterm.Error.Printf("Error fetching pods: %v\n", err)
+		pterm.Error.Printf("Error fetching pods in namespace '%s': %v\n", namespace, err)
 		os.Exit(1)
 	}
 
@@ -247,10 +259,11 @@ func klog(pod string, container string, keyword string) {
 	}
 
 	if len(matchedPods) == 0 {
-		pterm.Error.Printf("No pod found with name: %s\n", pod)
+		pterm.Warning.Printf("No pod found with name: %s\n", pod)
 		os.Exit(1)
 	}
 
+	var selectedPodName string
 	for _, p := range matchedPods {
 		if p.Name == pod {
 			selectedPodName = pod
@@ -260,18 +273,22 @@ func klog(pod string, container string, keyword string) {
 
 	spinner.Success("Initialization success")
 
+	var podName string
 	if selectedPodName == "" {
 		podName = selectPod(matchedPods)
+	} else {
+		podName = selectedPodName
 	}
 
+	var podNamespace string
 	for _, p := range matchedPods {
 		if p.Name == podName {
-			namespace = p.Namespace
+			podNamespace = p.Namespace
 			break
 		}
 	}
 
-	podInfo, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+	podInfo, err := clientset.CoreV1().Pods(podNamespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		pterm.Error.Printf("Error fetching pod information: %v\n", err)
 		os.Exit(1)
@@ -302,7 +319,7 @@ func klog(pod string, container string, keyword string) {
 	}
 
 	// Enable log streaming
-	stream, err := clientset.CoreV1().Pods(namespace).GetLogs(podName, podLogOptions).Stream(ctx)
+	stream, err := clientset.CoreV1().Pods(podNamespace).GetLogs(podName, podLogOptions).Stream(ctx)
 	if err != nil {
 		pterm.Error.Printf("Error starting log streaming: %v\n", err)
 		os.Exit(1)
