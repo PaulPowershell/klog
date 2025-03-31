@@ -24,7 +24,7 @@ import (
 
 const (
 	timestampFormat = "2006-01-02T15:04:05.000"
-	errorKeywords   = "level=error|level=err|levelerror|err=|[error]|[ERROR]|[err]|[ERR]| ERRO: | Err: | ERR | ERROR | CRIT "
+	errorKeywords   = "level=error|level=err|levelerror|err=|[error]|[ERROR]|[err]|[ERR]| ERRO: | Err: | ERR | ERROR | CRIT |E0331 "
 	warningKeywords = "level=warning|level=warn|levelwarn|warn=|[warning]|[WARNING]|[warn]|[WARN]| WARN: | WARN | WARNING |W0331 "
 	panicKeywords   = "level=panic|levelpanic|[panic]|[PANIC]| panic:|PANIC "
 	debugKeywords   = "level=debug|leveldebug|[debug]|[DEBUG]| debug:|DEBUG "
