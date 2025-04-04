@@ -35,13 +35,13 @@ const (
 )
 
 var (
-	containerFlag string
-	keywordFlag   string
-	namespaceFlag string
-	timestampFlag bool = true // Timestamp is enabled by default
-	lastContainer bool
-	sinceTimeFlag int
-	tailLinesFlag int
+	containerFlag     string
+	keywordFlag       string
+	namespaceFlag     string
+	timestampFlag     bool = true // Timestamp is enabled by default
+	previousContainer bool
+	sinceTimeFlag     int
+	tailLinesFlag     int
 )
 
 var rootCmd = &cobra.Command{
@@ -78,7 +78,7 @@ Examples:
 	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Keyword for highlighting")
 	rootCmd.Flags().StringVarP(&namespaceFlag, "namespace", "n", "", "Namespace (default is empty, meaning all namespaces)")
 	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", true, "Hide timestamps in logs (default showed)")
-	rootCmd.Flags().BoolVarP(&lastContainer, "lastContainer", "l", false, "Display logs for the previous container")
+	rootCmd.Flags().BoolVarP(&previousContainer, "previousContainer", "p", false, "Display logs for the previous container")
 	rootCmd.Flags().IntVarP(&sinceTimeFlag, "sinceTime", "s", 0, "Show logs since N hours ago")
 	rootCmd.Flags().IntVarP(&tailLinesFlag, "tailLines", "T", 0, "Show last N lines of logs")
 }
@@ -303,9 +303,9 @@ func klog(pod string, container string, keyword string) {
 	// Construct PodLogOptions
 	podLogOptions := &v1.PodLogOptions{
 		Container:  container,
-		Timestamps: timestampFlag, // Display timestamps
-		Follow:     true,          // Enable log streaming by default
-		Previous:   lastContainer, // Display logs of the previous container
+		Timestamps: timestampFlag,     // Display timestamps
+		Follow:     true,              // Enable log streaming by default
+		Previous:   previousContainer, // Display logs of the previous container
 	}
 
 	if sinceTimeFlag > 0 {
