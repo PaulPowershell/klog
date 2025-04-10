@@ -80,7 +80,16 @@ var (
 )
 
 var colorPalette = []pterm.Color{
-	pterm.FgRed, pterm.FgGreen, pterm.FgYellow, pterm.FgBlue, pterm.FgMagenta, pterm.FgCyan, pterm.FgLightYellow, pterm.FgLightBlue, pterm.FgLightMagenta, pterm.FgLightCyan,
+	pterm.FgRed,
+	pterm.FgGreen,
+	pterm.FgYellow,
+	pterm.FgBlue,
+	pterm.FgMagenta,
+	pterm.FgCyan,
+	pterm.FgLightYellow,
+	pterm.FgLightBlue,
+	pterm.FgLightMagenta,
+	pterm.FgLightCyan,
 }
 
 var (
@@ -93,6 +102,7 @@ var (
 	sinceTimeFlag     int
 	tailLinesFlag     int
 	allPodsFlag       bool
+	followFlag        bool = true // Follow logs is enabled by default
 )
 
 var rootCmd = &cobra.Command{
@@ -106,9 +116,12 @@ var rootCmd = &cobra.Command{
 		}
 
 		podFlag := args[0]
-		// Invert the timestampFlag if -t is specified
+		// Invert switch variables if are specified
 		if cmd.Flag("timestamp").Changed {
 			timestampFlag = !timestampFlag
+		}
+		if cmd.Flag("follow").Changed {
+			followFlag = !followFlag
 		}
 		klog(podFlag, containerFlag, keywordFlag, keywordOnlyFlag, allPodsFlag)
 	},
@@ -127,6 +140,7 @@ Examples:
   klog <pod-name> -s 24 - 50		// Show logs with sinceTime 24 hours and last 50 tailLines
   klog <pod-name> -T 50			// Show last 50 lines of logs
   klog <pod-name> -a			// Show logs from all pods that match the name
+	klog <pod-name> -f			// Follow logs (default is true)
 `)
 	// Set flags for arguments
 	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Container name")
@@ -138,6 +152,7 @@ Examples:
 	rootCmd.Flags().IntVarP(&sinceTimeFlag, "sinceTime", "s", 0, "Show logs since N hours ago")
 	rootCmd.Flags().IntVarP(&tailLinesFlag, "tailLines", "T", 0, "Show last N lines of logs")
 	rootCmd.Flags().BoolVarP(&allPodsFlag, "allPods", "a", false, "Show logs from all pods that match the name")
+	rootCmd.Flags().BoolVarP(&followFlag, "follow", "f", true, "Follow logs (default is true)")
 }
 
 func main() {
@@ -196,10 +211,10 @@ func selectPod(matchedPods []v1.Pod) string {
 
 func getPodLogOptions(containerName string) *v1.PodLogOptions {
 	podLogOptions := &v1.PodLogOptions{
-		Timestamps: timestampFlag,     // Afficher les timestamps
-		Follow:     true,              // Streaming des logs par défaut
-		Previous:   previousContainer, // Logs du container précédent
-		Container:  containerName,     // Ajouter le nom du container
+		Timestamps: timestampFlag,     // Show timestamps
+		Follow:     followFlag,        // Follow logs
+		Previous:   previousContainer, // Show logs for the previous container
+		Container:  containerName,     // Container name
 	}
 
 	if sinceTimeFlag > 0 {
@@ -214,19 +229,15 @@ func getPodLogOptions(containerName string) *v1.PodLogOptions {
 	return podLogOptions
 }
 
-func streamLogs(ctx context.Context, clientset *kubernetes.Clientset, podName, podNamespace, container string, keyword string, keywordOnly bool, showPodName bool, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func streamLogs(ctx context.Context, clientset *kubernetes.Clientset, podName, podNamespace, container string, keyword string, keywordOnly bool, showPodName bool) {
 	podInfo, err := clientset.CoreV1().Pods(podNamespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		pterm.Error.Printf("Error fetching pod information for pod %s: %v\n", podName, err)
 		return
 	}
 
-	// Si container est déjà défini, pas besoin de le redemander
 	selectedContainer := container
 	if selectedContainer == "" {
-		// Si container est toujours vide, on sélectionne un container (cas d'urgence)
 		selectedContainer = selectContainer(podInfo.Spec.Containers)
 		if selectedContainer == "" {
 			return
@@ -246,13 +257,13 @@ func streamLogs(ctx context.Context, clientset *kubernetes.Clientset, podName, p
 	}
 	defer stream.Close()
 
-	// Sélectionner la couleur unique pour ce pod
+	// Select a unique color for this pod
 	podColor := GetPodColor(podName)
 
 	// Copy stream to standard output, highlighting log lines
 	scanner := bufio.NewScanner(stream)
 	for scanner.Scan() {
-		// Utiliser la couleur unique pour ce pod dans le nom
+		// Use the unique color for this pod in the name
 		PrintLogLine(podColor.Sprint(podName), scanner.Text(), keyword, keywordOnly, showPodName)
 	}
 
@@ -315,18 +326,18 @@ func klog(pod string, container string, keyword string, keywordOnly bool, allPod
 	if allPods {
 		var wg sync.WaitGroup
 		sem := make(chan struct{}, maxConcurrency) // Limiting concurrency
+		wg.Add(len(matchedPods))
 
 		for _, p := range matchedPods {
-			wg.Add(1)
-			sem <- struct{}{} // Acquiring a token
+			sem <- struct{}{}
 
 			go func(pod v1.Pod) {
 				defer func() {
-					<-sem     // Releasing the token
-					wg.Done() // Indicate that the goroutine has finished
+					<-sem
+					wg.Done()
 				}()
 
-				streamLogs(ctx, clientset, pod.Name, pod.Namespace, container, keyword, keywordOnly, true, &wg)
+				streamLogs(ctx, clientset, pod.Name, pod.Namespace, container, keyword, keywordOnly, true)
 			}(p)
 		}
 		wg.Wait()
@@ -352,6 +363,6 @@ func klog(pod string, container string, keyword string, keywordOnly bool, allPod
 			}
 		}
 
-		streamLogs(ctx, clientset, podName, podNamespace, container, keyword, keywordOnly, false, &sync.WaitGroup{})
+		streamLogs(ctx, clientset, podName, podNamespace, container, keyword, keywordOnly, false)
 	}
 }

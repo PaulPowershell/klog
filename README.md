@@ -38,6 +38,7 @@ Usage:
 Flags:
   -a, --allPods             Show logs from all pods that match the name
   -c, --container string    Container name
+  -f, --follow              Follow logs (default is false) (default true)
   -h, --help                help for klog
   -k, --keyword string      Keyword for highlighting
   -K, --keywordOnly         Show only lines containing the keyword
@@ -57,6 +58,7 @@ Examples:
   klog <pod-name> -s 24 - 50            // Show logs with sinceTime 24 hours and last 50 tailLines
   klog <pod-name> -T 50                 // Show last 50 lines of logs
   klog <pod-name> -a                    // Show logs from all pods that match the name
+  klog <pod-name> -f                    // Follow logs (default is false)
 ```
 You can select `pod` or `container` if you have multiple choices
 
