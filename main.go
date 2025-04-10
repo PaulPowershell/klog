@@ -3,20 +3,15 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
-	"strings"
+	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -24,15 +19,69 @@ import (
 
 const (
 	timestampFormat = "2006-01-02T15:04:05.000"
-	errorKeywords   = "level=error|level=err|levelerror|err=|[error]|[ERROR]|[err]|[ERR]| ERRO: | Err: | ERR | ERROR | CRIT |E0331|	ERROR	"
-	warningKeywords = "level=warning|level=warn|levelwarn|warn=|[warning]|[WARNING]|[warn]|[WARN]| WARN: | WARN | WARNING |W0331 |	WARNING	"
-	panicKeywords   = "level=panic|levelpanic|[panic]|[PANIC]| panic:|PANIC "
-	debugKeywords   = "level=debug|leveldebug|[debug]|[DEBUG]| debug:|DEBUG "
 
 	errorLevelJson = "error|critical|fatal"
 	warnLevelJson  = "warn|warning|panic"
 	debugLevelJson = "debug"
+
+	maxConcurrency = 10 // Maximum number of concurrent log streams
 )
+
+var (
+	errorRegexps = []*regexp.Regexp{
+		regexp.MustCompile(`\blevel=error\b`),
+		regexp.MustCompile(`\blevel=err\b`),
+		regexp.MustCompile(`\blevelerror\b`),
+		regexp.MustCompile(`\berr=\b`),
+		regexp.MustCompile(`\[error\]`),
+		regexp.MustCompile(`\[ERROR\]`),
+		regexp.MustCompile(`\[err\]`),
+		regexp.MustCompile(`\[ERR\]`),
+		regexp.MustCompile(` ERRO: `),
+		regexp.MustCompile(` Err: `),
+		regexp.MustCompile(`\bERR\b`),
+		regexp.MustCompile(`\bERROR\b`),
+		regexp.MustCompile(`\bCRIT\b`),
+		regexp.MustCompile(`\bE0\d{3}\b`), // E0***
+	}
+
+	warningRegexps = []*regexp.Regexp{
+		regexp.MustCompile(`\blevel=warning\b`),
+		regexp.MustCompile(`\blevel=warn\b`),
+		regexp.MustCompile(`\blevelwarn\b`),
+		regexp.MustCompile(`\bwarn=\b`),
+		regexp.MustCompile(`\[warning\]`),
+		regexp.MustCompile(`\[WARNING\]`),
+		regexp.MustCompile(`\[warn\]`),
+		regexp.MustCompile(`\[WARN\]`),
+		regexp.MustCompile(` WARN: `),
+		regexp.MustCompile(`\bWARN\b`),
+		regexp.MustCompile(`\bWARNING\b`),
+		regexp.MustCompile(`\bW0\d{3}\b`), // W0***
+	}
+
+	panicRegexps = []*regexp.Regexp{
+		regexp.MustCompile(`\blevel=panic\b`),
+		regexp.MustCompile(`\blevelpanic\b`),
+		regexp.MustCompile(`\[panic\]`),
+		regexp.MustCompile(`\[PANIC\]`),
+		regexp.MustCompile(` panic:`),
+		regexp.MustCompile(`\bPANIC\b`),
+	}
+
+	debugRegexps = []*regexp.Regexp{
+		regexp.MustCompile(`\blevel=debug\b`),
+		regexp.MustCompile(`\bleveldebug\b`),
+		regexp.MustCompile(`\[debug\]`),
+		regexp.MustCompile(`\[DEBUG\]`),
+		regexp.MustCompile(` debug:`),
+		regexp.MustCompile(`\bDEBUG\b`),
+	}
+)
+
+var colorPalette = []pterm.Color{
+	pterm.FgRed, pterm.FgGreen, pterm.FgYellow, pterm.FgBlue, pterm.FgMagenta, pterm.FgCyan, pterm.FgLightYellow, pterm.FgLightBlue, pterm.FgLightMagenta, pterm.FgLightCyan,
+}
 
 var (
 	containerFlag     string
@@ -43,6 +92,7 @@ var (
 	previousContainer bool
 	sinceTimeFlag     int
 	tailLinesFlag     int
+	allPodsFlag       bool
 )
 
 var rootCmd = &cobra.Command{
@@ -60,7 +110,7 @@ var rootCmd = &cobra.Command{
 		if cmd.Flag("timestamp").Changed {
 			timestampFlag = !timestampFlag
 		}
-		klog(podFlag, containerFlag, keywordFlag)
+		klog(podFlag, containerFlag, keywordFlag, keywordOnlyFlag, allPodsFlag)
 	},
 }
 
@@ -72,10 +122,11 @@ Examples:
   klog <pod-name> -k <my-keyword>	// Show logs and color the <my-keyword> in line
   klog <pod-name> -k <my-keyword> -K 	// Show only lines and color where <my-keyword> matched
   klog <pod-name> -n <namespace>	// Show logs in the specified namespace
-  klog <pod-name> -t			// Select containers and show logs without timestamp
+  klog <pod-name> -t			// Show logs without timestamp
   klog <pod-name> -p			// Show logs for the previous container in <pod-name>
   klog <pod-name> -s 24 - 50		// Show logs with sinceTime 24 hours and last 50 tailLines
   klog <pod-name> -T 50			// Show last 50 lines of logs
+  klog <pod-name> -a			// Show logs from all pods that match the name
 `)
 	// Set flags for arguments
 	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Container name")
@@ -86,109 +137,12 @@ Examples:
 	rootCmd.Flags().BoolVarP(&previousContainer, "previousContainer", "p", false, "Display logs for the previous container")
 	rootCmd.Flags().IntVarP(&sinceTimeFlag, "sinceTime", "s", 0, "Show logs since N hours ago")
 	rootCmd.Flags().IntVarP(&tailLinesFlag, "tailLines", "T", 0, "Show last N lines of logs")
+	rootCmd.Flags().BoolVarP(&allPodsFlag, "allPods", "a", false, "Show logs from all pods that match the name")
 }
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		pterm.Error.Print(err)
-	}
-}
-
-func checkIfNamespaceExists(clientset *kubernetes.Clientset, namespace string) bool {
-	_, err := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
-	return err == nil
-}
-
-// Function to highlight a word in the string
-func highlightKeyword(line string, keyword string, colorFunc func(a ...interface{}) string) string {
-	re := regexp.MustCompile(keyword)
-	matches := re.FindAllStringIndex(line, -1)
-
-	if len(matches) > 0 {
-		result := ""
-		startIndex := 0
-		for _, match := range matches {
-			result += colorFunc(line[startIndex:match[0]]) + pterm.BgMagenta.Sprint(line[match[0]:match[1]])
-			startIndex = match[1]
-		}
-		result += colorFunc(line[startIndex:])
-		return result
-	}
-
-	return colorFunc(line)
-}
-
-func containsAny(line string, substrings ...string) bool {
-	for _, s := range substrings {
-		if strings.Contains((line), s) {
-			return true
-		}
-	}
-	return false
-}
-
-func printLogLine(line string, keyword string) {
-	var logEntry map[string]interface{}
-	var colorFunc func(a ...interface{}) string
-	var timestamp string
-
-	if timestampFlag {
-		// Extract timestamp and rest of the line
-		if parts := strings.SplitN(line, " ", 2); len(parts) == 2 {
-			timestamp = parts[0]
-			line = parts[1]
-		}
-	}
-
-	switch {
-	case containsAny(line, strings.Split(errorKeywords, "|")...):
-		colorFunc = pterm.Red
-	case containsAny(line, strings.Split(warningKeywords, "|")...):
-		colorFunc = pterm.Yellow
-	case containsAny(line, strings.Split(panicKeywords, "|")...):
-		colorFunc = pterm.Yellow
-	case containsAny(line, strings.Split(debugKeywords, "|")...):
-		colorFunc = pterm.Cyan
-	default:
-		colorFunc = pterm.White
-	}
-
-	if err := json.Unmarshal([]byte(line), &logEntry); err == nil {
-		level, exists := logEntry["level"].(string)
-		if exists {
-			levelLower := strings.ToLower(level)
-			switch {
-			case containsAny(levelLower, strings.Split(errorLevelJson, "|")...):
-				colorFunc = pterm.Red
-			case containsAny(levelLower, strings.Split(warnLevelJson, "|")...):
-				colorFunc = pterm.Yellow
-			case containsAny(levelLower, strings.Split(debugLevelJson, "|")...):
-				colorFunc = pterm.Cyan
-			default:
-				colorFunc = pterm.White
-			}
-		}
-	}
-
-	// Convert timestamp string to time.Time object
-	if timestamp != "" {
-		t, err := time.Parse(time.RFC3339Nano, timestamp)
-		if err == nil {
-			timestamp = t.Format(timestampFormat)
-		}
-	}
-
-	if keyword != "" && keywordOnlyFlag {
-		// Only show lines that contain the keyword
-		if strings.Contains(line, keyword) {
-			coloredLine := highlightKeyword(colorFunc(line), keyword, colorFunc)
-			fmt.Printf("%s %s\n", pterm.FgDarkGray.Sprint(timestamp), coloredLine)
-		}
-	} else if keyword != "" {
-		coloredLine := highlightKeyword(colorFunc(line), keyword, colorFunc)
-		fmt.Printf("%s %s\n", pterm.FgDarkGray.Sprint(timestamp), coloredLine)
-	} else {
-		fmt.Printf("%s %s\n", pterm.FgDarkGray.Sprint(timestamp), colorFunc(line))
 	}
 }
 
@@ -208,7 +162,11 @@ func selectContainer(containers []v1.Container) string {
 		containerNames[i] = container.Name
 	}
 
-	selectedOption, _ := selectorContainer.WithOptions(containerNames).Show()
+	selectedOption, err := selectorContainer.WithOptions(containerNames).Show()
+	if err != nil {
+		pterm.Error.Printf("Failed to select container: %v\n", err)
+		return ""
+	}
 
 	fmt.Print("\033[F\033[K\033[F\033[K") // Remove last 2 lines
 	return selectedOption
@@ -223,97 +181,25 @@ func selectPod(matchedPods []v1.Pod) string {
 	for i, pod := range matchedPods {
 		podNames[i] = pod.Name
 	}
-
 	selectorPod := pterm.DefaultInteractiveSelect.WithDefaultText("Select a pod")
 	selectorPod.MaxHeight = 10
-	selectedOption, _ := selectorPod.WithOptions(podNames).Show() // The Show() method displays the options and waits for the user's input
+	selectedOption, err := selectorPod.WithOptions(podNames).Show() // The Show() method displays the options and waits for the user's input
+
+	if err != nil {
+		pterm.Error.Printf("Failed to select pod: %v\n", err)
+		return ""
+	}
 
 	fmt.Print("\033[F\033[K\033[F\033[K") // Remove last 2 lines
 	return selectedOption
 }
 
-func klog(pod string, container string, keyword string) {
-	// Create spinner & Start
-	spinner, _ := pterm.DefaultSpinner.Start("Initialization in progress")
-
-	var matchedPods []v1.Pod
-	var namespace string = namespaceFlag // Utilisation du namespace spécifié ou vide
-
-	config := loadKubeConfig()
-	ctx := context.Background()
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		pterm.Error.Printf("Error creating Kubernetes client: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Vérifie si le namespace existe si spécifié
-	if namespace != "" && !checkIfNamespaceExists(clientset, namespace) {
-		pterm.Error.Printf("Namespace '%s' does not exist\n", namespace)
-		os.Exit(1)
-	}
-
-	allPods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		pterm.Error.Printf("Error fetching pods: %v\n", err)
-		os.Exit(1)
-	}
-
-	for _, p := range allPods.Items {
-		if matched, _ := regexp.MatchString(pod, p.Name); matched {
-			matchedPods = append(matchedPods, p)
-		}
-	}
-
-	if len(matchedPods) == 0 {
-		pterm.Warning.Printf("No pod found with name: %s\n", pod)
-		os.Exit(1)
-	}
-
-	var selectedPodName string
-	for _, p := range matchedPods {
-		if p.Name == pod {
-			selectedPodName = pod
-			break
-		}
-	}
-
-	spinner.Success("Initialization success")
-
-	var podName string
-	if selectedPodName == "" {
-		podName = selectPod(matchedPods)
-	} else {
-		podName = selectedPodName
-	}
-
-	var podNamespace string
-	for _, p := range matchedPods {
-		if p.Name == podName {
-			podNamespace = p.Namespace
-			break
-		}
-	}
-
-	podInfo, err := clientset.CoreV1().Pods(podNamespace).Get(ctx, podName, metav1.GetOptions{})
-	if err != nil {
-		pterm.Error.Printf("Error fetching pod information: %v\n", err)
-		os.Exit(1)
-	}
-
-	if container == "" {
-		container = selectContainer(podInfo.Spec.Containers)
-	}
-
-	pterm.Info.Printf("Displaying logs for container '%s' in pod '%s'\n", container, podName)
-
-	// Construct PodLogOptions
+func getPodLogOptions(containerName string) *v1.PodLogOptions {
 	podLogOptions := &v1.PodLogOptions{
-		Container:  container,
-		Timestamps: timestampFlag,     // Display timestamps
-		Follow:     true,              // Enable log streaming by default
-		Previous:   previousContainer, // Display logs of the previous container
+		Timestamps: timestampFlag,     // Afficher les timestamps
+		Follow:     true,              // Streaming des logs par défaut
+		Previous:   previousContainer, // Logs du container précédent
+		Container:  containerName,     // Ajouter le nom du container
 	}
 
 	if sinceTimeFlag > 0 {
@@ -325,36 +211,147 @@ func klog(pod string, container string, keyword string) {
 		tailLines := int64(tailLinesFlag)
 		podLogOptions.TailLines = &tailLines
 	}
+	return podLogOptions
+}
+
+func streamLogs(ctx context.Context, clientset *kubernetes.Clientset, podName, podNamespace, container string, keyword string, keywordOnly bool, showPodName bool, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	podInfo, err := clientset.CoreV1().Pods(podNamespace).Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		pterm.Error.Printf("Error fetching pod information for pod %s: %v\n", podName, err)
+		return
+	}
+
+	// Si container est déjà défini, pas besoin de le redemander
+	selectedContainer := container
+	if selectedContainer == "" {
+		// Si container est toujours vide, on sélectionne un container (cas d'urgence)
+		selectedContainer = selectContainer(podInfo.Spec.Containers)
+		if selectedContainer == "" {
+			return
+		}
+	}
+
+	pterm.Info.Printf("Displaying logs for container '%s' in pod '%s'\n", selectedContainer, podName)
+
+	// Construct PodLogOptions
+	podLogOptions := getPodLogOptions(selectedContainer)
 
 	// Enable log streaming
 	stream, err := clientset.CoreV1().Pods(podNamespace).GetLogs(podName, podLogOptions).Stream(ctx)
 	if err != nil {
-		pterm.Error.Printf("Error starting log streaming: %v\n", err)
-		os.Exit(1)
+		pterm.Error.Printf("Error starting log streaming for pod %s: %v\n", podName, err)
+		return
 	}
 	defer stream.Close()
+
+	// Sélectionner la couleur unique pour ce pod
+	podColor := GetPodColor(podName)
 
 	// Copy stream to standard output, highlighting log lines
 	scanner := bufio.NewScanner(stream)
 	for scanner.Scan() {
-		// Use function to highlight keyword
-		printLogLine(scanner.Text(), keyword)
+		// Utiliser la couleur unique pour ce pod dans le nom
+		PrintLogLine(podColor.Sprint(podName), scanner.Text(), keyword, keywordOnly, showPodName)
 	}
 
 	if err := scanner.Err(); err != nil {
-		pterm.Error.Printf("Error reading logs: %v\n", err)
-		os.Exit(1)
+		pterm.Error.Printf("Error reading logs for pod %s: %v\n", podName, err)
 	}
 }
 
-func loadKubeConfig() *rest.Config {
-	home := homedir.HomeDir()
-	configPath := filepath.Join(home, ".kube", "config")
+func klog(pod string, container string, keyword string, keywordOnly bool, allPods bool) {
+	// Create spinner & Start
+	spinner, _ := pterm.DefaultSpinner.Start("Initialization in progress")
 
-	config, err := clientcmd.BuildConfigFromFlags("", configPath)
+	var matchedPods []v1.Pod
+	var namespace string = namespaceFlag // Use the specified namespace or empty
+
+	config := LoadKubeConfig()
+	ctx := context.Background()
+
+	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		pterm.Error.Printf("Error loading Kubernetes configuration: %v\n", err)
-		os.Exit(2)
+		pterm.Error.Printf("Error creating Kubernetes client: %v\n", err)
+		os.Exit(1)
 	}
-	return config
+
+	// Verify if the namespace exists if specified
+	if namespace != "" && !CheckIfNamespaceExists(clientset, namespace) {
+		pterm.Error.Printf("Namespace '%s' does not exist\n", namespace)
+		os.Exit(1)
+	}
+
+	allPodsList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		pterm.Error.Printf("Error fetching pods: %v\n", err)
+		os.Exit(1)
+	}
+
+	for _, p := range allPodsList.Items {
+		if matched, _ := regexp.MatchString(pod, p.Name); matched {
+			matchedPods = append(matchedPods, p)
+		}
+	}
+
+	if len(matchedPods) == 0 {
+		pterm.Warning.Printf("No pod found with name: %s\n", pod)
+		os.Exit(1)
+	}
+
+	spinner.Success("Initialization success")
+
+	if container == "" {
+		// selection container to be done only once globally
+		selectedContainer := selectContainer(matchedPods[0].Spec.Containers)
+		if selectedContainer == "" {
+			pterm.Error.Printf("No container selected\n")
+			os.Exit(1)
+		}
+		container = selectedContainer
+	}
+
+	if allPods {
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, maxConcurrency) // Limiting concurrency
+
+		for _, p := range matchedPods {
+			wg.Add(1)
+			sem <- struct{}{} // Acquiring a token
+
+			go func(pod v1.Pod) {
+				defer func() {
+					<-sem     // Releasing the token
+					wg.Done() // Indicate that the goroutine has finished
+				}()
+
+				streamLogs(ctx, clientset, pod.Name, pod.Namespace, container, keyword, keywordOnly, true, &wg)
+			}(p)
+		}
+		wg.Wait()
+	} else {
+		var podName string
+		if len(matchedPods) == 0 {
+			pterm.Warning.Printf("No pod found with name: %s\n", pod)
+			os.Exit(1)
+			return
+		}
+
+		if len(matchedPods) > 1 {
+			podName = selectPod(matchedPods)
+		} else {
+			podName = matchedPods[0].Name
+		}
+
+		podNamespace := ""
+		for _, p := range matchedPods {
+			if p.Name == podName {
+				podNamespace = p.Namespace
+				break
+			}
+		}
+
+		streamLogs(ctx, clientset, podName, podNamespace, container, keyword, keywordOnly, false, &sync.WaitGroup{})
+	}
 }

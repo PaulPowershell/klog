@@ -3,6 +3,7 @@ module main
 go 1.22.3
 
 require (
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pterm/pterm v0.12.79
 	github.com/spf13/cobra v1.8.0
 	k8s.io/api v0.29.1

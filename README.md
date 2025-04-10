@@ -36,6 +36,7 @@ Usage:
   klog [flags]
 
 Flags:
+  -a, --allPods             Show logs from all pods that match the name
   -c, --container string    Container name
   -h, --help                help for klog
   -k, --keyword string      Keyword for highlighting
@@ -51,10 +52,11 @@ Examples:
   klog <pod-name> -k <my-keyword>       // Show logs and color the <my-keyword> in line
   klog <pod-name> -k <my-keyword> -K    // Show only lines and color where <my-keyword> matched
   klog <pod-name> -n <namespace>        // Show logs in the specified namespace
-  klog <pod-name> -t                    // Select containers and show logs without timestamp
+  klog <pod-name> -t                    // Show logs without timestamp
   klog <pod-name> -p                    // Show logs for the previous container in <pod-name>
   klog <pod-name> -s 24 - 50            // Show logs with sinceTime 24 hours and last 50 tailLines
   klog <pod-name> -T 50                 // Show last 50 lines of logs
+  klog <pod-name> -a                    // Show logs from all pods that match the name
 ```
 You can select `pod` or `container` if you have multiple choices
 
