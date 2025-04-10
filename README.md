@@ -38,7 +38,7 @@ Usage:
 Flags:
   -a, --allPods             Show logs from all pods that match the name
   -c, --container string    Container name
-  -f, --follow              Follow logs (default is false) (default true)
+  -f, --follow              Follow logs (default is true) (default true)
   -h, --help                help for klog
   -k, --keyword string      Keyword for highlighting
   -K, --keywordOnly         Show only lines containing the keyword
@@ -49,16 +49,16 @@ Flags:
   -t, --timestamp           Hide timestamps in logs (default showed) (default true)
 
 Examples:
+  klog <pod-name> -a                    // Show logs from all pods that match the name
   klog <pod-name> -c <my-container> -l  // Show logs for <my-container> in <pod-name> for last container
   klog <pod-name> -k <my-keyword>       // Show logs and color the <my-keyword> in line
+  klog <pod-name> -f                    // Follow logs (default is true)
   klog <pod-name> -k <my-keyword> -K    // Show only lines and color where <my-keyword> matched
   klog <pod-name> -n <namespace>        // Show logs in the specified namespace
-  klog <pod-name> -t                    // Show logs without timestamp
   klog <pod-name> -p                    // Show logs for the previous container in <pod-name>
   klog <pod-name> -s 24 - 50            // Show logs with sinceTime 24 hours and last 50 tailLines
   klog <pod-name> -T 50                 // Show last 50 lines of logs
-  klog <pod-name> -a                    // Show logs from all pods that match the name
-  klog <pod-name> -f                    // Follow logs (default is false)
+  klog <pod-name> -t                    // Show logs without timestamp
 ```
 You can select `pod` or `container` if you have multiple choices
 

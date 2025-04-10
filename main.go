@@ -140,7 +140,7 @@ Examples:
   klog <pod-name> -s 24 - 50		// Show logs with sinceTime 24 hours and last 50 tailLines
   klog <pod-name> -T 50			// Show last 50 lines of logs
   klog <pod-name> -a			// Show logs from all pods that match the name
-	klog <pod-name> -f			// Follow logs (default is true)
+  klog <pod-name> -f			// Follow logs (default is true)
 `)
 	// Set flags for arguments
 	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Container name")
