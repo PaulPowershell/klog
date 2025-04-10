@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,8 +24,8 @@ import (
 
 const (
 	timestampFormat = "2006-01-02T15:04:05.000"
-	errorKeywords   = "level=error|level=err|levelerror|err=|[error]|[ERROR]|[err]|[ERR]| ERRO: | Err: | ERR | ERROR | CRIT |E0331 "
-	warningKeywords = "level=warning|level=warn|levelwarn|warn=|[warning]|[WARNING]|[warn]|[WARN]| WARN: | WARN | WARNING |W0331 "
+	errorKeywords   = "level=error|level=err|levelerror|err=|[error]|[ERROR]|[err]|[ERR]| ERRO: | Err: | ERR | ERROR | CRIT |E0331|	ERROR	"
+	warningKeywords = "level=warning|level=warn|levelwarn|warn=|[warning]|[WARNING]|[warn]|[WARN]| WARN: | WARN | WARNING |W0331 |	WARNING	"
 	panicKeywords   = "level=panic|levelpanic|[panic]|[PANIC]| panic:|PANIC "
 	debugKeywords   = "level=debug|leveldebug|[debug]|[DEBUG]| debug:|DEBUG "
 
@@ -38,7 +39,7 @@ var (
 	keywordFlag       string
 	keywordOnlyFlag   bool
 	namespaceFlag     string
-	timestampFlag     bool = true // Timestamp activé par défaut
+	timestampFlag     bool = true // Timestamp is enabled by default
 	previousContainer bool
 	sinceTimeFlag     int
 	tailLinesFlag     int
@@ -127,11 +128,12 @@ func containsAny(line string, substrings ...string) bool {
 }
 
 func printLogLine(line string, keyword string) {
+	var logEntry map[string]interface{}
 	var colorFunc func(a ...interface{}) string
 	var timestamp string
 
 	if timestampFlag {
-		// Extraire le timestamp et le reste de la ligne
+		// Extract timestamp and rest of the line
 		if parts := strings.SplitN(line, " ", 2); len(parts) == 2 {
 			timestamp = parts[0]
 			line = parts[1]
@@ -149,6 +151,31 @@ func printLogLine(line string, keyword string) {
 		colorFunc = pterm.Cyan
 	default:
 		colorFunc = pterm.White
+	}
+
+	if err := json.Unmarshal([]byte(line), &logEntry); err == nil {
+		level, exists := logEntry["level"].(string)
+		if exists {
+			levelLower := strings.ToLower(level)
+			switch {
+			case containsAny(levelLower, strings.Split(errorLevelJson, "|")...):
+				colorFunc = pterm.Red
+			case containsAny(levelLower, strings.Split(warnLevelJson, "|")...):
+				colorFunc = pterm.Yellow
+			case containsAny(levelLower, strings.Split(debugLevelJson, "|")...):
+				colorFunc = pterm.Cyan
+			default:
+				colorFunc = pterm.White
+			}
+		}
+	}
+
+	// Convert timestamp string to time.Time object
+	if timestamp != "" {
+		t, err := time.Parse(time.RFC3339Nano, timestamp)
+		if err == nil {
+			timestamp = t.Format(timestampFormat)
+		}
 	}
 
 	if keyword != "" && keywordOnlyFlag {
