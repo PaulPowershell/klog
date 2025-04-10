@@ -36,19 +36,25 @@ Usage:
   klog [flags]
 
 Flags:
-  -c, --container string   Container name
-  -h, --help               help for klog
-  -k, --keyword string     Keyword for highlighting
-  -l, --lastContainer      Display logs for the previous container
-  -s, --sinceTime int      Show logs since N hours ago
-  -T, --tailLines int      Show last N lines of logs
-  -t, --timestamp          Hide timestamps in logs
+  -c, --container string    Container name
+  -h, --help                help for klog
+  -k, --keyword string      Keyword for highlighting
+  -K, --keywordOnly         Show only lines containing the keyword
+  -n, --namespace string    Namespace (default is empty, meaning all namespaces)
+  -p, --previousContainer   Display logs for the previous container
+  -s, --sinceTime int       Show logs since N hours ago
+  -T, --tailLines int       Show last N lines of logs
+  -t, --timestamp           Hide timestamps in logs (default showed) (default true)
 
 Examples:
-  klog <pod-name> -t                    // Select containers and show logs for <pod-name> without timestamp
   klog <pod-name> -c <my-container> -l  // Show logs for <my-container> in <pod-name> for last container
-  klog <pod-name> -k <my-keyword>       // Show logs for <pod-name> and color the <my-keyword> in line
-  klog <pod-name> -s 24 -T 50           // Show logs for <pod-name> with sinceTime 24 hours and last 50 tailLines
+  klog <pod-name> -k <my-keyword>       // Show logs and color the <my-keyword> in line
+  klog <pod-name> -k <my-keyword> -K    // Show only lines and color where <my-keyword> matched
+  klog <pod-name> -n <namespace>        // Show logs in the specified namespace
+  klog <pod-name> -t                    // Select containers and show logs without timestamp
+  klog <pod-name> -p                    // Show logs for the previous container in <pod-name>
+  klog <pod-name> -s 24 - 50            // Show logs with sinceTime 24 hours and last 50 tailLines
+  klog <pod-name> -T 50                 // Show last 50 lines of logs
 ```
 You can select `pod` or `container` if you have multiple choices
 
