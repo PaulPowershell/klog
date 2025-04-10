@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -37,8 +36,9 @@ const (
 var (
 	containerFlag     string
 	keywordFlag       string
+	keywordOnlyFlag   bool
 	namespaceFlag     string
-	timestampFlag     bool = true // Timestamp is enabled by default
+	timestampFlag     bool = true // Timestamp activé par défaut
 	previousContainer bool
 	sinceTimeFlag     int
 	tailLinesFlag     int
@@ -67,15 +67,19 @@ func init() {
 	// Set the help template for rootCmd
 	rootCmd.SetHelpTemplate(rootCmd.HelpTemplate() + `
 Examples:
-  klog <pod-name> -t			// Select containers and show logs for <pod-name> without timestamp
   klog <pod-name> -c <my-container> -l	// Show logs for <my-container> in <pod-name> for last container
-  klog <pod-name> -k <my-keyword>	// Show logs for <pod-name> and color the <my-keyword> in line
-  klog <pod-name> -s 24 - 50		// Show logs for <pod-name> with sinceTime 24 hours and last 50 tailLines
-  klog <pod-name> -n <namespace>	// Show logs for <pod-name> in the specified namespace
+  klog <pod-name> -k <my-keyword>	// Show logs and color the <my-keyword> in line
+  klog <pod-name> -k <my-keyword> -K 	// Show only lines and color where <my-keyword> matched
+  klog <pod-name> -n <namespace>	// Show logs in the specified namespace
+  klog <pod-name> -t			// Select containers and show logs without timestamp
+  klog <pod-name> -p			// Show logs for the previous container in <pod-name>
+  klog <pod-name> -s 24 - 50		// Show logs with sinceTime 24 hours and last 50 tailLines
+  klog <pod-name> -T 50			// Show last 50 lines of logs
 `)
 	// Set flags for arguments
 	rootCmd.Flags().StringVarP(&containerFlag, "container", "c", "", "Container name")
 	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Keyword for highlighting")
+	rootCmd.Flags().BoolVarP(&keywordOnlyFlag, "keywordOnly", "K", false, "Show only lines containing the keyword")
 	rootCmd.Flags().StringVarP(&namespaceFlag, "namespace", "n", "", "Namespace (default is empty, meaning all namespaces)")
 	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", true, "Hide timestamps in logs (default showed)")
 	rootCmd.Flags().BoolVarP(&previousContainer, "previousContainer", "p", false, "Display logs for the previous container")
@@ -123,12 +127,11 @@ func containsAny(line string, substrings ...string) bool {
 }
 
 func printLogLine(line string, keyword string) {
-	var logEntry map[string]interface{}
 	var colorFunc func(a ...interface{}) string
 	var timestamp string
 
 	if timestampFlag {
-		// Extract timestamp and rest of the line
+		// Extraire le timestamp et le reste de la ligne
 		if parts := strings.SplitN(line, " ", 2); len(parts) == 2 {
 			timestamp = parts[0]
 			line = parts[1]
@@ -148,39 +151,17 @@ func printLogLine(line string, keyword string) {
 		colorFunc = pterm.White
 	}
 
-	if err := json.Unmarshal([]byte(line), &logEntry); err == nil {
-		level, exists := logEntry["level"].(string)
-		if exists {
-			levelLower := strings.ToLower(level)
-			switch {
-			case containsAny(levelLower, strings.Split(errorLevelJson, "|")...):
-				colorFunc = pterm.Red
-			case containsAny(levelLower, strings.Split(warnLevelJson, "|")...):
-				colorFunc = pterm.Yellow
-			case containsAny(levelLower, strings.Split(debugLevelJson, "|")...):
-				colorFunc = pterm.Cyan
-			default:
-				colorFunc = pterm.White
-			}
+	if keyword != "" && keywordOnlyFlag {
+		// Only show lines that contain the keyword
+		if strings.Contains(line, keyword) {
+			coloredLine := highlightKeyword(colorFunc(line), keyword, colorFunc)
+			fmt.Printf("%s %s\n", pterm.FgDarkGray.Sprint(timestamp), coloredLine)
 		}
-	}
-
-	// Convert timestamp string to time.Time object
-	if timestamp != "" {
-		t, err := time.Parse(time.RFC3339Nano, timestamp)
-		if err == nil {
-			timestamp = t.Format(timestampFormat)
-		}
-	}
-
-	if keyword == "" {
-		fmt.Printf("%s %s\n", pterm.FgDarkGray.Sprint(timestamp), colorFunc(line))
-	} else {
-		// Apply colorization to the rest of the line
+	} else if keyword != "" {
 		coloredLine := highlightKeyword(colorFunc(line), keyword, colorFunc)
-
-		// Print timestamp normally and the rest colored
 		fmt.Printf("%s %s\n", pterm.FgDarkGray.Sprint(timestamp), coloredLine)
+	} else {
+		fmt.Printf("%s %s\n", pterm.FgDarkGray.Sprint(timestamp), colorFunc(line))
 	}
 }
 
