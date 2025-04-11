@@ -230,28 +230,15 @@ func getPodLogOptions(containerName string) *v1.PodLogOptions {
 }
 
 func streamLogs(ctx context.Context, clientset *kubernetes.Clientset, podName, podNamespace, container string, keyword string, keywordOnly bool, showPodName bool) {
-	podInfo, err := clientset.CoreV1().Pods(podNamespace).Get(ctx, podName, metav1.GetOptions{})
-	if err != nil {
-		pterm.Error.Printf("Error fetching pod information for pod %s: %v\n", podName, err)
-		return
-	}
+	pterm.Info.Printf("Displaying logs for container '%s' in pod '%s'\n", container, podName)
 
-	selectedContainer := container
-	if selectedContainer == "" {
-		selectedContainer = selectContainer(podInfo.Spec.Containers)
-		if selectedContainer == "" {
-			return
-		}
-	}
-
-	pterm.Info.Printf("Displaying logs for container '%s' in pod '%s'\n", selectedContainer, podName)
-
-	podLogOptions := getPodLogOptions(selectedContainer)
+	// Construct PodLogOptions
+	podLogOptions := getPodLogOptions(container)
 
 	// Enable log streaming
 	stream, err := clientset.CoreV1().Pods(podNamespace).GetLogs(podName, podLogOptions).Stream(ctx)
 	if err != nil {
-		pterm.Error.Printf("Error starting log streaming for pod %s: %v\n", podName, err)
+		pterm.Error.Printf("Error starting log streaming for pod %s, container %s: %v\n", podName, container, err)
 		return
 	}
 	defer stream.Close()
@@ -259,6 +246,7 @@ func streamLogs(ctx context.Context, clientset *kubernetes.Clientset, podName, p
 	// Select a unique color for this pod
 	podColor := GetPodColor(podName)
 
+	// Copy stream to standard output, highlighting log lines
 	scanner := bufio.NewScanner(stream)
 	for scanner.Scan() {
 		// Use the unique color for this pod in the name
@@ -271,6 +259,7 @@ func streamLogs(ctx context.Context, clientset *kubernetes.Clientset, podName, p
 }
 
 func klog(pod string, container string, keyword string, keywordOnly bool, allPods bool) {
+	// Create spinner & Start
 	spinner, _ := pterm.DefaultSpinner.Start("Initialization in progress")
 
 	var matchedPods []v1.Pod
@@ -285,6 +274,7 @@ func klog(pod string, container string, keyword string, keywordOnly bool, allPod
 		os.Exit(1)
 	}
 
+	// Verify if the namespace exists if specified
 	if namespace != "" && !CheckIfNamespaceExists(clientset, namespace) {
 		pterm.Error.Printf("Namespace '%s' does not exist\n", namespace)
 		os.Exit(1)
@@ -309,35 +299,34 @@ func klog(pod string, container string, keyword string, keywordOnly bool, allPod
 
 	spinner.Success("Initialization success")
 
-	if container == "" {
-		selectedContainer := selectContainer(matchedPods[0].Spec.Containers)
-		if selectedContainer == "" {
-			pterm.Error.Printf("No container selected\n")
-			os.Exit(1)
-		}
-		container = selectedContainer
-	}
-
 	if allPods {
 		var wg sync.WaitGroup
 		sem := make(chan struct{}, maxConcurrency) // Limiting concurrency
 		wg.Add(len(matchedPods))
+		// Selection container only once
+		selectedContainerName := container
+		if container == "" {
+			selectedContainerName = selectContainer(matchedPods[0].Spec.Containers)
+			if selectedContainerName == "" {
+				pterm.Error.Printf("No container selected\n")
+				os.Exit(1)
+			}
 
-		for _, p := range matchedPods {
-			pod := p
+		}
 
+		for _, pod := range matchedPods {
+			pod := pod // Capture the range variable
 			sem <- struct{}{}
-
 			go func() {
 				defer func() {
 					<-sem
 					wg.Done()
 				}()
-
-				streamLogs(ctx, clientset, pod.Name, pod.Namespace, container, keyword, keywordOnly, true)
+				streamLogs(ctx, clientset, pod.Name, pod.Namespace, selectedContainerName, keyword, keywordOnly, true)
 			}()
 		}
 		wg.Wait()
+
 	} else {
 		var podName string
 		if len(matchedPods) == 0 {
@@ -353,13 +342,24 @@ func klog(pod string, container string, keyword string, keywordOnly bool, allPod
 		}
 
 		podNamespace := ""
+		var selectedPod v1.Pod
 		for _, p := range matchedPods {
 			if p.Name == podName {
 				podNamespace = p.Namespace
+				selectedPod = p
 				break
 			}
 		}
+		selectedContainerName := container
+		if container == "" {
+			selectedContainerName = selectContainer(selectedPod.Spec.Containers)
+			if selectedContainerName == "" {
+				pterm.Error.Printf("No container selected\n")
+				os.Exit(1)
+			}
 
-		streamLogs(ctx, clientset, podName, podNamespace, container, keyword, keywordOnly, false)
+		}
+
+		streamLogs(ctx, clientset, podName, podNamespace, selectedContainerName, keyword, keywordOnly, false)
 	}
 }
