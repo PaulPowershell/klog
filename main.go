@@ -246,7 +246,6 @@ func streamLogs(ctx context.Context, clientset *kubernetes.Clientset, podName, p
 
 	pterm.Info.Printf("Displaying logs for container '%s' in pod '%s'\n", selectedContainer, podName)
 
-	// Construct PodLogOptions
 	podLogOptions := getPodLogOptions(selectedContainer)
 
 	// Enable log streaming
@@ -260,7 +259,6 @@ func streamLogs(ctx context.Context, clientset *kubernetes.Clientset, podName, p
 	// Select a unique color for this pod
 	podColor := GetPodColor(podName)
 
-	// Copy stream to standard output, highlighting log lines
 	scanner := bufio.NewScanner(stream)
 	for scanner.Scan() {
 		// Use the unique color for this pod in the name
@@ -273,7 +271,6 @@ func streamLogs(ctx context.Context, clientset *kubernetes.Clientset, podName, p
 }
 
 func klog(pod string, container string, keyword string, keywordOnly bool, allPods bool) {
-	// Create spinner & Start
 	spinner, _ := pterm.DefaultSpinner.Start("Initialization in progress")
 
 	var matchedPods []v1.Pod
@@ -288,7 +285,6 @@ func klog(pod string, container string, keyword string, keywordOnly bool, allPod
 		os.Exit(1)
 	}
 
-	// Verify if the namespace exists if specified
 	if namespace != "" && !CheckIfNamespaceExists(clientset, namespace) {
 		pterm.Error.Printf("Namespace '%s' does not exist\n", namespace)
 		os.Exit(1)
@@ -314,7 +310,6 @@ func klog(pod string, container string, keyword string, keywordOnly bool, allPod
 	spinner.Success("Initialization success")
 
 	if container == "" {
-		// selection container to be done only once globally
 		selectedContainer := selectContainer(matchedPods[0].Spec.Containers)
 		if selectedContainer == "" {
 			pterm.Error.Printf("No container selected\n")
@@ -329,16 +324,18 @@ func klog(pod string, container string, keyword string, keywordOnly bool, allPod
 		wg.Add(len(matchedPods))
 
 		for _, p := range matchedPods {
+			pod := p
+
 			sem <- struct{}{}
 
-			go func(pod v1.Pod) {
+			go func() {
 				defer func() {
 					<-sem
 					wg.Done()
 				}()
 
 				streamLogs(ctx, clientset, pod.Name, pod.Namespace, container, keyword, keywordOnly, true)
-			}(p)
+			}()
 		}
 		wg.Wait()
 	} else {
