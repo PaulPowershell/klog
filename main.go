@@ -135,7 +135,7 @@ Examples:
   klog <pod-name> -k <my-keyword>	// Show logs and color the <my-keyword> in line
   klog <pod-name> -k <my-keyword> -K 	// Show only lines and color where <my-keyword> matched
   klog <pod-name> -n <namespace>	// Show logs in the specified namespace
-  klog <pod-name> -t			// Show logs without timestamp
+  klog <pod-name> -t			// Show logs with timestamp (default is true)
   klog <pod-name> -p			// Show logs for the previous container in <pod-name>
   klog <pod-name> -s 24 - 50		// Show logs with sinceTime 24 hours and last 50 tailLines
   klog <pod-name> -T 50			// Show last 50 lines of logs
@@ -147,12 +147,12 @@ Examples:
 	rootCmd.Flags().StringVarP(&keywordFlag, "keyword", "k", "", "Keyword for highlighting")
 	rootCmd.Flags().BoolVarP(&keywordOnlyFlag, "keywordOnly", "K", false, "Show only lines containing the keyword")
 	rootCmd.Flags().StringVarP(&namespaceFlag, "namespace", "n", "", "Namespace (default is empty, meaning all namespaces)")
-	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", true, "Hide timestamps in logs (default showed)")
+	rootCmd.Flags().BoolVarP(&timestampFlag, "timestamp", "t", true, "Show timestamps in logs")
 	rootCmd.Flags().BoolVarP(&previousContainer, "previousContainer", "p", false, "Display logs for the previous container")
 	rootCmd.Flags().IntVarP(&sinceTimeFlag, "sinceTime", "s", 0, "Show logs since N hours ago")
 	rootCmd.Flags().IntVarP(&tailLinesFlag, "tailLines", "T", 0, "Show last N lines of logs")
 	rootCmd.Flags().BoolVarP(&allPodsFlag, "allPods", "a", false, "Show logs from all pods that match the name")
-	rootCmd.Flags().BoolVarP(&followFlag, "follow", "f", true, "Follow logs (default is true)")
+	rootCmd.Flags().BoolVarP(&followFlag, "follow", "f", true, "Follow logs")
 }
 
 func main() {
