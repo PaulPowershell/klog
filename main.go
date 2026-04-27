@@ -39,6 +39,7 @@ var (
 		regexp.MustCompile(`\[ERR\]`),
 		regexp.MustCompile(` ERRO: `),
 		regexp.MustCompile(` Err: `),
+		regexp.MustCompile(` Error: `),
 		regexp.MustCompile(`\bERR\b`),
 		regexp.MustCompile(`\bERROR\b`),
 		regexp.MustCompile(`\bCRIT\b`),
