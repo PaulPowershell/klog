@@ -56,6 +56,7 @@ var (
 		regexp.MustCompile(`\[warn\]`),
 		regexp.MustCompile(`\[WARN\]`),
 		regexp.MustCompile(` WARN: `),
+		regexp.MustCompile(` Warning: `),
 		regexp.MustCompile(`\bWARN\b`),
 		regexp.MustCompile(`\bWARNING\b`),
 		regexp.MustCompile(`\bW0\d{3}\b`), // W0***
